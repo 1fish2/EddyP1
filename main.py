@@ -2,13 +2,14 @@
 
 Fetches predigested satellite CO2 and wind data (originating from F4CR/f4cr-cdrr),
 extracts wind vector and geospatial coordinates (u_wind, v_wind, latitude, longitude),
-and saves the subsetted dataset for exploratory analysis (e.g. Google Sheets / Polars / DuckDB).
+and saves the subsetted dataset for exploratory analysis (e.g. Google Sheets / Polars / DuckDB / Marimo).
 """
 
 from __future__ import annotations
 
 import gzip
 import io
+import math
 import time
 import urllib.error
 import urllib.parse
@@ -76,6 +77,20 @@ def fetch_csv_bytes(url: str) -> io.BytesIO:
         content = gzip.decompress(content)
 
     return io.BytesIO(content)
+
+
+def enrich_wind_metrics(df: pl.DataFrame) -> pl.DataFrame:
+    """Calculate wind speed (m/s) and meteorological direction (degrees from true North)."""
+    return (
+        df.filter(pl.col("u_wind").is_not_null() & pl.col("v_wind").is_not_null())
+        .with_columns(
+            wind_speed=(pl.col("u_wind").pow(2) + pl.col("v_wind").pow(2)).sqrt(),
+            wind_dir_deg=(
+                (pl.arctan2(-pl.col("u_wind"), -pl.col("v_wind")) * (180.0 / math.pi))
+                % 360
+            ),
+        )
+    )
 
 
 def process_dataset(
