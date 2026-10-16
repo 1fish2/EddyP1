@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import gzip
 import io
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -39,8 +40,15 @@ def compose_dataset_url(
 
 
 def fetch_csv_bytes(url: str) -> io.BytesIO:
-    """Fetch CSV content from URL. If .csv is absent (404), fallback to .csv.gz and un-gzip it."""
-    headers = {"User-Agent": "EddyP1-Explorer/1.0"}
+    """Fetch CSV content from URL. If .csv is absent (404), fallback to .csv.gz
+    and un-gzip it. (Could switch to either httpx or requests library to
+    automatically accept gzip and decompress the bytes, but we need to configure
+    the Compression Rule via Cloudflare dashboard to include text/csv.)
+    """
+    headers = {
+        "User-Agent": "EddyP1-Explorer/1.0",
+        "Accept-Encoding": "gzip",
+    }
 
     def _download(target_url: str) -> bytes:
         req = urllib.request.Request(target_url, headers=headers)
@@ -48,6 +56,7 @@ def fetch_csv_bytes(url: str) -> io.BytesIO:
             return resp.read()
 
     target_url = url
+    start_time = time.perf_counter()
     try:
         print(f"Fetching: {target_url}")
         content = _download(target_url)
@@ -58,6 +67,8 @@ def fetch_csv_bytes(url: str) -> io.BytesIO:
             content = _download(gz_url)
         else:
             raise
+    elapsed = time.perf_counter() - start_time
+    print(f"Download elapsed time: {elapsed:.2f}s")
 
     # If the payload is gzipped (checks magic bytes 0x1f 0x8b), decompress it
     if content.startswith(b"\x1f\x8b"):
@@ -91,7 +102,7 @@ def process_dataset(
     print(f"Dataset successfully saved to: {output_csv_path}")
     print(f"Total Rows:     {num_rows:,}")
     print(f"Total Columns:  {num_cols} ({', '.join(df.columns)})")
-    print(f"File Size:      {total_bytes / (1024 * 1024):.2f} MB ({total_bytes:,} bytes)")
+    print(f"File Size:      {total_bytes / (1024 * 1024):.2f} MiB ({total_bytes:,} bytes)")
     print("=" * 50)
     print("\nFirst 5 rows:")
     print(df.head())
