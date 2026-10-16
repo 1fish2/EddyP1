@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import gzip
 import io
+import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Sequence
 from pathlib import Path
 
 import polars as pl
@@ -19,16 +21,22 @@ import polars as pl
 BASE_DATA_URL = "https://oco.carbonviews.org/data"
 
 # Primary columns of interest for wind vector and eddy exploration
-SELECTED_COLUMNS = ["u_wind", "v_wind", "latitude", "longitude"]
+SELECTED_COLUMNS: tuple[str, ...] = ("u_wind", "v_wind", "latitude", "longitude")
 
-def compose_dataset_url(region: str, year: int, start_month: int,
-                        end_month: int) -> str:
+
+def compose_dataset_url(
+    region: str,
+    year: int,
+    start_month: int,
+    end_month: int,
+) -> str:
     """Compose the URL for an averaged satellite dataset given region and date range."""
     date_str = f"{region} {year} {start_month:02d} to {end_month:02d}"
     encoded_folder = urllib.parse.quote(date_str)
     filename = f"data_averaged_{date_str}.csv"
     encoded_filename = urllib.parse.quote(filename)
     return f"{BASE_DATA_URL}/{encoded_folder}/{encoded_filename}"
+
 
 def fetch_csv_bytes(url: str) -> io.BytesIO:
     """Fetch CSV content from URL. If .csv is absent (404), fallback to .csv.gz and un-gzip it."""
@@ -58,10 +66,11 @@ def fetch_csv_bytes(url: str) -> io.BytesIO:
 
     return io.BytesIO(content)
 
+
 def process_dataset(
-        url: str,
-        output_csv_path: Path,
-        columns: list[str] = SELECTED_COLUMNS,
+    url: str,
+    output_csv_path: Path,
+    columns: Sequence[str] = SELECTED_COLUMNS,
 ) -> pl.DataFrame:
     """Download dataset, extract selected columns, and save to a local CSV file."""
     csv_stream = fetch_csv_bytes(url)
@@ -82,8 +91,7 @@ def process_dataset(
     print(f"Dataset successfully saved to: {output_csv_path}")
     print(f"Total Rows:     {num_rows:,}")
     print(f"Total Columns:  {num_cols} ({', '.join(df.columns)})")
-    print(
-        f"File Size:      {total_bytes / (1024 * 1024):.2f} MB ({total_bytes:,} bytes)")
+    print(f"File Size:      {total_bytes / (1024 * 1024):.2f} MB ({total_bytes:,} bytes)")
     print("=" * 50)
     print("\nFirst 5 rows:")
     print(df.head())
@@ -92,13 +100,19 @@ def process_dataset(
 
     return df
 
+
 def main():
     # Target dataset: Baja 2020 01 to 04
-    dataset_url = compose_dataset_url(region="Baja", year=2020, start_month=1,
-                                      end_month=4)
+    dataset_url = compose_dataset_url(
+        region="Baja",
+        year=2020,
+        start_month=1,
+        end_month=4,
+    )
     output_file = Path("data/baja_2020_01_to_04_wind_geo.csv")
 
     process_dataset(url=dataset_url, output_csv_path=output_file)
+
 
 if __name__ == "__main__":
     main()
