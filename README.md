@@ -15,7 +15,7 @@ method described in:
 * Load it into a Polars dataframe.
 * Start to explore it with a Marimo interactive notebook.
 
-![a wind flow direction visualization](/Users/jerry/dev/EddyP1/doc/visualization.png "initial wind flow direction visualization")
+![a wind flow direction visualization](doc/visualization.png "initial wind flow direction visualization")
 
 
 ## Components TODO
