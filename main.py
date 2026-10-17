@@ -80,13 +80,17 @@ def fetch_csv_bytes(url: str) -> io.BytesIO:
 
 
 def enrich_wind_metrics(df: pl.DataFrame) -> pl.DataFrame:
-    """Calculate wind speed (m/s) and meteorological direction (degrees from true North)."""
+    """Calculate wind speed (m/s), meteorological direction (from), and vector flow heading (toward)."""
     return (
         df.filter(pl.col("u_wind").is_not_null() & pl.col("v_wind").is_not_null())
         .with_columns(
             wind_speed=(pl.col("u_wind").pow(2) + pl.col("v_wind").pow(2)).sqrt(),
             wind_dir_deg=(
                 (pl.arctan2(-pl.col("u_wind"), -pl.col("v_wind")) * (180.0 / math.pi))
+                % 360
+            ),
+            wind_flow_deg=(
+                (pl.arctan2(pl.col("u_wind"), pl.col("v_wind")) * (180.0 / math.pi))
                 % 360
             ),
         )
