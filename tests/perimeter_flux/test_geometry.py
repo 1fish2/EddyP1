@@ -331,6 +331,38 @@ class TestSensorPerimeterAndEdges:
         assert n[0] == 0.6
         assert n[1] == 0.8
 
+    def test_normal_vector_dot_product(self):
+        """Test NormalVector.dot method and its alias/operator."""
+        n1 = NormalVector(u=0.6, v=0.8)
+        n2 = NormalVector(u=0.8, v=-0.6)
+        n3 = NormalVector(u=0.6, v=0.8)
+        n_opposite = NormalVector(u=-0.6, v=-0.8)
+
+        # Orthogonal vectors -> dot product is 0.0
+        assert math.isclose(n1.dot(n2), 0.0, abs_tol=1e-12)
+        assert math.isclose(n1.dot_product(n2), 0.0, abs_tol=1e-12)
+        assert math.isclose(n1 @ n2, 0.0, abs_tol=1e-12)
+
+        # Parallel unit vectors -> dot product is 1.0
+        assert math.isclose(n1.dot(n3), 1.0, abs_tol=1e-12)
+        assert math.isclose(n1 @ n3, 1.0, abs_tol=1e-12)
+
+        # Anti-parallel unit vectors -> dot product is -1.0
+        assert math.isclose(n1.dot(n_opposite), -1.0, abs_tol=1e-12)
+
+        # Known non-orthogonal dot product
+        n_arb = NormalVector(u=0.28, v=0.96)
+        expected = 0.6 * 0.28 + 0.8 * 0.96  # 0.168 + 0.768 = 0.936
+        assert math.isclose(n1.dot(n_arb), expected, abs_tol=1e-12)
+
+        # Interoperability with sequences / tuples
+        assert math.isclose(n1.dot((0.8, -0.6)), 0.0, abs_tol=1e-12)
+        assert math.isclose(n1 @ [0.6, 0.8], 1.0, abs_tol=1e-12)
+
+        # Invalid type should raise TypeError
+        with pytest.raises(TypeError, match="Cannot compute dot product"):
+            n1.dot(42)  # type: ignore[arg-type]
+
     def test_perimeter_km_property(self):
         """Test perimeter_km equals the sum of edge lengths."""
         perimeter = SensorPerimeter(ACAPULCO_EDDY_SAMPLE_VERTICES)

@@ -55,6 +55,35 @@ class NormalVector(NamedTuple):
         """Northward component."""
         return self.v
 
+    def dot(self, other: NormalVector | Sequence[float]) -> float:
+        """Compute the scalar dot product with another NormalVector.
+
+        Args:
+            other: Another NormalVector instance (or 2-element sequence).
+
+        Returns:
+            The scalar dot product: self.u * other.u + self.v * other.v.
+
+        Raises:
+            TypeError: If other cannot be treated as a 2D vector.
+        """
+        if hasattr(other, "u") and hasattr(other, "v"):
+            return float(self.u * other.u + self.v * other.v)
+        if isinstance(other, Sequence) and len(other) == 2:
+            return float(self.u * other[0] + self.v * other[1])
+        raise TypeError(f"Cannot compute dot product with object of type {type(other).__name__}")
+
+    def dot_product(self, other: NormalVector | Sequence[float]) -> float:
+        """Alias for :meth:`dot`."""
+        return self.dot(other)
+
+    def __matmul__(self, other: NormalVector | Sequence[float]) -> float:
+        """The @ operator computes the dot product: normal1 @ normal2."""
+        try:
+            return self.dot(other)
+        except TypeError:
+            return NotImplemented
+
 
 class SensorEdge:
     """An edge between two sensor vertices along the perimeter.
@@ -157,7 +186,7 @@ class SensorPerimeter:
         validated = self.validate_vertices(vertices)
         sorted_pts = self.sort_vertices(validated, start=start, enforce_convex=True)
 
-        # Maintain immutable tuple of immutable vertex tuples
+        # Maintain an immutable tuple of (lat, lon) vertex tuples in CCW order
         self._vertices: tuple[tuple[float, float], ...] = tuple(
             (float(lat), float(lon)) for lat, lon in sorted_pts
         )
@@ -170,12 +199,12 @@ class SensorPerimeter:
 
     @property
     def vertices(self) -> tuple[tuple[float, float], ...]:
-        """Return the polygon vertices as an immutable tuple of (lat, lon) tuples."""
+        """Return the polygon vertices as an immutable tuple of (lat, lon) tuples in CCW order."""
         return self._vertices
 
     @property
     def edges(self) -> tuple[SensorEdge, ...]:
-        """Return the sequence of polygon edges, each an instance of SensorEdge."""
+        """Return the sequence of polygon edges, each a CCW SensorEdge."""
         n = len(self._vertices)
         return tuple(
             SensorEdge(self._vertices[i], self._vertices[(i + 1) % n])
