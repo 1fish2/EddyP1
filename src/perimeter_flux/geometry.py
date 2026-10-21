@@ -11,8 +11,9 @@ import csv
 import math
 from collections.abc import Sequence
 from pathlib import Path
+from typing import NamedTuple
 
-# Static copy of sample buoy locations around the Acapulco eddy
+# Static copy of sample buoy locations around an eddy near Acapulco
 # (from test_data/6_points_around_acapulco_eddy.csv)
 ACAPULCO_EDDY_SAMPLE_VERTICES: tuple[tuple[float, float], ...] = (
     (14.29, -101.64),
@@ -28,28 +29,138 @@ EARTH_RADIUS_KM = 6371.0088
 KM_PER_DEG_LAT = 111.139
 
 
-class OceanEddyGeometry:
-    """Utility class for ocean eddy geometric computations."""
+class NormalVector(NamedTuple):
+    """2D unit normal vector (u, v) where u is Eastward and v is Northward."""
+
+    u: float  # Eastward / zonal component (dx)
+    v: float  # Northward / meridional component (dy)
+
+    @property
+    def x(self) -> float:
+        """Alias for Eastward (u) component."""
+        return self.u
+
+    @property
+    def y(self) -> float:
+        """Alias for Northward (v) component."""
+        return self.v
+
+    @property
+    def east(self) -> float:
+        """Eastward component."""
+        return self.u
+
+    @property
+    def north(self) -> float:
+        """Northward component."""
+        return self.v
+
+
+class SensorEdge:
+    """An edge between two sensor vertices along the perimeter.
+
+    Knows its two vertices (v1, v2) and provides an outward-pointing unit normal vector.
+    """
+
+    def __init__(
+        self,
+        v1: tuple[float, float],
+        v2: tuple[float, float],
+    ) -> None:
+        self._v1: tuple[float, float] = (float(v1[0]), float(v1[1]))
+        self._v2: tuple[float, float] = (float(v2[0]), float(v2[1]))
+
+    @property
+    def v1(self) -> tuple[float, float]:
+        """First vertex (start of edge) as (latitude, longitude)."""
+        return self._v1
+
+    @property
+    def v2(self) -> tuple[float, float]:
+        """Second vertex (end of edge) as (latitude, longitude)."""
+        return self._v2
+
+    @property
+    def vertices(self) -> tuple[tuple[float, float], tuple[float, float]]:
+        """Pair of vertices (v1, v2) forming the edge."""
+        return self._v1, self._v2
+
+    @property
+    def midpoint(self) -> tuple[float, float]:
+        """Midpoint coordinate (latitude, longitude) of the edge."""
+        return (self._v1[0] + self._v2[0]) / 2.0, (self._v1[1] + self._v2[1]) / 2.0
+
+    def length_km(self) -> float:
+        """Approximate physical length of the edge in kilometers."""
+        mid_lat = (self._v1[0] + self._v2[0]) / 2.0
+        dx_km = (self._v2[1] - self._v1[1]) * math.cos(math.radians(mid_lat)) * KM_PER_DEG_LAT
+        dy_km = (self._v2[0] - self._v1[0]) * KM_PER_DEG_LAT
+        return math.hypot(dx_km, dy_km)
+
+    def normal(self, metric: bool = True) -> NormalVector:
+        """Return the outward-pointing 2D unit vector normal to this edge.
+
+        For a counterclockwise-traversed perimeter edge from v1 to v2,
+        the outward normal points to the right of the tangent vector.
+
+        Args:
+            metric: If True (default), accounts for the convergence of meridians
+                on a spherical Earth by scaling longitude delta by cos(mean_latitude).
+                If False, computes the normal in unprojected (degree) Cartesian space.
+
+        Returns:
+            NormalVector(u, v) with magnitude 1.0, where u is Eastward and v is Northward.
+
+        Raises:
+            ValueError: If the edge has zero length (v1 == v2).
+        """
+        mid_lat = (self._v1[0] + self._v2[0]) / 2.0
+        if metric:
+            dx = (self._v2[1] - self._v1[1]) * math.cos(math.radians(mid_lat))
+        else:
+            dx = self._v2[1] - self._v1[1]
+        dy = self._v2[0] - self._v1[0]
+
+        # Right-turn normal in (x, y): (dy, -dx)
+        nx = dy
+        ny = -dx
+        length = math.hypot(nx, ny)
+        if length < 1e-15:
+            raise ValueError("Cannot compute normal of a zero-length edge.")
+
+        return NormalVector(u=nx / length, v=ny / length)
+
+    def __repr__(self) -> str:
+        return f"SensorEdge(v1={self._v1}, v2={self._v2})"
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SensorEdge):
+            return NotImplemented
+        return self._v1 == other._v1 and self._v2 == other._v2
+
+
+class SensorPerimeter:
+    """The polygon perimeter for a set of ocean sensor buoys/ASVs."""
 
     def __init__(
         self,
         vertices: Sequence[tuple[float, float]],
-        sort_ccw: bool = True,
         start: str | tuple[float, float] = "first",
     ) -> None:
-        """Initialize an OceanEddyGeometry instance with a list of (latitude, longitude) vertices.
+        """Initialize a SensorPerimeter instance with a list of (latitude, longitude) vertices.
 
         Args:
             vertices: Sequence of (lat, lon) coordinates.
-            sort_ccw: If True, automatically sorts vertices into counterclockwise order.
             start: Reference starting vertex convention ("first", "min_lat", "min_lon",
                 or a specific (lat, lon) coordinate).
         """
         validated = self.validate_vertices(vertices)
-        if sort_ccw:
-            self._vertices = self.sort_vertices(validated, start=start, enforce_convex=True)
-        else:
-            self._vertices = validated
+        sorted_pts = self.sort_vertices(validated, start=start, enforce_convex=True)
+
+        # Maintain immutable tuple of immutable vertex tuples
+        self._vertices: tuple[tuple[float, float], ...] = tuple(
+            (float(lat), float(lon)) for lat, lon in sorted_pts
+        )
 
         lats = [lat for lat, _ in self._vertices]
         lons = [lon for _, lon in self._vertices]
@@ -58,9 +169,18 @@ class OceanEddyGeometry:
         self._centroid = self.centroid(self._vertices)
 
     @property
-    def vertices(self) -> list[tuple[float, float]]:
-        """Return the polygon vertices as a list of (lat, lon) tuples."""
-        return list(self._vertices)
+    def vertices(self) -> tuple[tuple[float, float], ...]:
+        """Return the polygon vertices as an immutable tuple of (lat, lon) tuples."""
+        return self._vertices
+
+    @property
+    def edges(self) -> tuple[SensorEdge, ...]:
+        """Return the sequence of polygon edges, each an instance of SensorEdge."""
+        n = len(self._vertices)
+        return tuple(
+            SensorEdge(self._vertices[i], self._vertices[(i + 1) % n])
+            for i in range(n)
+        )
 
     @property
     def centroid_lat_lon(self) -> tuple[float, float]:
@@ -86,6 +206,11 @@ class OceanEddyGeometry:
     def area_km2(self) -> float:
         """Return the approximate physical area in square kilometers."""
         return self.polygon_area_km2(self._vertices)
+
+    @property
+    def perimeter_km(self) -> float:
+        """Return the total perimeter length in kilometers."""
+        return sum(edge.length_km() for edge in self.edges)
 
     @staticmethod
     def _spans_international_date_line(lons: Sequence[float]) -> bool:
@@ -161,9 +286,9 @@ class OceanEddyGeometry:
             ValueError: If any sanity check fails.
         """
         if not isinstance(vertices, Sequence) or len(vertices) < 3:
-            gunk = len(vertices) if isinstance(vertices, Sequence) else type(
-                vertices).__name__
-            raise ValueError(f"A polygon requires at least 3 vertices, got {gunk}.")
+            actual_type = type(vertices).__name__
+            count = len(vertices) if isinstance(vertices, Sequence) else actual_type
+            raise ValueError(f"A polygon requires at least 3 vertices, got {count}.")
 
         clean_pts: list[tuple[float, float]] = []
         for idx, pt in enumerate(vertices):
@@ -529,7 +654,7 @@ def sort_eddy_vertices(
     Returns:
         Sorted list of (latitude, longitude) pairs in counterclockwise order.
     """
-    return OceanEddyGeometry.sort_vertices(
+    return SensorPerimeter.sort_vertices(
         vertices=vertices,
         start=start,
         enforce_convex=enforce_convex,
