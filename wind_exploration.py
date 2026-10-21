@@ -32,6 +32,7 @@ def _(mo):
     return
 
 
+# noinspection pep8-naming
 @app.cell(hide_code=True)
 def _(Path, mo, pl):
     csv_file = Path("data/baja_2020_01_to_04_wind_geo.csv")
