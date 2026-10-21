@@ -9,7 +9,7 @@ import pytest
 
 from perimeter_flux.geometry import (
     ACAPULCO_EDDY_SAMPLE_VERTICES,
-    NormalVector,
+    Vector,
     SensorEdge,
     SensorPerimeter,
     sort_eddy_vertices,
@@ -319,49 +319,149 @@ class TestSensorPerimeterAndEdges:
         assert edge == SensorEdge(p1, p2)
         assert edge != SensorEdge(p2, p1)
 
-    def test_normal_vector_properties(self):
-        """Test NormalVector named components and aliases."""
-        n = NormalVector(u=0.6, v=0.8)
-        assert n.u == 0.6
-        assert n.v == 0.8
-        assert n.x == 0.6
-        assert n.y == 0.8
-        assert n.east == 0.6
-        assert n.north == 0.8
-        assert n[0] == 0.6
-        assert n[1] == 0.8
+    def test_vector_properties(self):
+        """Test Vector components, aliases, polar coordinates, and sequence behavior."""
+        v = Vector(u=3.0, v=4.0)
+        assert v.u == 3.0
+        assert v.v == 4.0
+        assert v.x == 3.0
+        assert v.y == 4.0
+        assert v.east == 3.0
+        assert v.north == 4.0
+        assert v[0] == 3.0
+        assert v[1] == 4.0
+        u_val, v_val = v
+        assert (u_val, v_val) == (3.0, 4.0)
 
-    def test_normal_vector_dot_product(self):
-        """Test NormalVector.dot method and its alias/operator."""
-        n1 = NormalVector(u=0.6, v=0.8)
-        n2 = NormalVector(u=0.8, v=-0.6)
-        n3 = NormalVector(u=0.6, v=0.8)
-        n_opposite = NormalVector(u=-0.6, v=-0.8)
+        # Magnitude and angle (polar coordinates)
+        assert math.isclose(v.magnitude, 5.0, abs_tol=1e-12)
+        assert math.isclose(v.angle, math.atan2(4.0, 3.0), abs_tol=1e-12)
+
+        # Cardinal directions angle
+        assert math.isclose(Vector(1.0, 0.0).angle, 0.0, abs_tol=1e-12)
+        assert math.isclose(Vector(0.0, 1.0).angle, math.pi / 2, abs_tol=1e-12)
+        assert math.isclose(Vector(-1.0, 0.0).angle, math.pi, abs_tol=1e-12)
+        assert math.isclose(Vector(0.0, -1.0).angle, -math.pi / 2, abs_tol=1e-12)
+
+    def test_vector_dot_product(self):
+        """Test Vector.dot method and @ operator."""
+        v1 = Vector(u=0.6, v=0.8)
+        v2 = Vector(u=0.8, v=-0.6)
+        v3 = Vector(u=0.6, v=0.8)
+        v_opposite = Vector(u=-0.6, v=-0.8)
 
         # Orthogonal vectors -> dot product is 0.0
-        assert math.isclose(n1.dot(n2), 0.0, abs_tol=1e-12)
-        assert math.isclose(n1.dot_product(n2), 0.0, abs_tol=1e-12)
-        assert math.isclose(n1 @ n2, 0.0, abs_tol=1e-12)
+        assert math.isclose(v1.dot(v2), 0.0, abs_tol=1e-12)
+        assert math.isclose(v1 @ v2, 0.0, abs_tol=1e-12)
 
         # Parallel unit vectors -> dot product is 1.0
-        assert math.isclose(n1.dot(n3), 1.0, abs_tol=1e-12)
-        assert math.isclose(n1 @ n3, 1.0, abs_tol=1e-12)
+        assert math.isclose(v1.dot(v3), 1.0, abs_tol=1e-12)
+        assert math.isclose(v1 @ v3, 1.0, abs_tol=1e-12)
 
         # Anti-parallel unit vectors -> dot product is -1.0
-        assert math.isclose(n1.dot(n_opposite), -1.0, abs_tol=1e-12)
+        assert math.isclose(v1.dot(v_opposite), -1.0, abs_tol=1e-12)
 
-        # Known non-orthogonal dot product
-        n_arb = NormalVector(u=0.28, v=0.96)
-        expected = 0.6 * 0.28 + 0.8 * 0.96  # 0.168 + 0.768 = 0.936
-        assert math.isclose(n1.dot(n_arb), expected, abs_tol=1e-12)
+        # Non-unit vector dot product
+        v_a = Vector(u=2.0, v=3.0)
+        v_b = Vector(u=4.0, v=-1.0)
+        assert math.isclose(v_a @ v_b, 5.0, abs_tol=1e-12)
 
         # Interoperability with sequences / tuples
-        assert math.isclose(n1.dot((0.8, -0.6)), 0.0, abs_tol=1e-12)
-        assert math.isclose(n1 @ [0.6, 0.8], 1.0, abs_tol=1e-12)
+        assert math.isclose(v1.dot((0.8, -0.6)), 0.0, abs_tol=1e-12)
+        assert math.isclose(v1 @ [0.6, 0.8], 1.0, abs_tol=1e-12)
 
         # Invalid type should raise TypeError
         with pytest.raises(TypeError, match="Cannot compute dot product"):
-            n1.dot(42)  # type: ignore[arg-type]
+            v1.dot(42)  # type: ignore[arg-type]
+
+    def test_vector_normalize(self):
+        """Test Vector.normalize static method with two float arguments."""
+        n = Vector.normalize(3.0, 4.0)
+        assert isinstance(n, Vector)
+        assert math.isclose(n.u, 0.6, abs_tol=1e-12)
+        assert math.isclose(n.v, 0.8, abs_tol=1e-12)
+        assert math.isclose(n.magnitude, 1.0, abs_tol=1e-12)
+
+        # Caller can unpack sequence with *
+        pair = (0.0, -10.0)
+        n_unpacked = Vector.normalize(*pair)
+        assert math.isclose(n_unpacked.u, 0.0, abs_tol=1e-12)
+        assert math.isclose(n_unpacked.v, -1.0, abs_tol=1e-12)
+
+        # Zero length vector raises ValueError
+        with pytest.raises(ValueError, match="Cannot normalize a zero-length vector"):
+            Vector.normalize(0.0, 0.0)
+
+        # Missing argument raises TypeError
+        with pytest.raises(TypeError):
+            Vector.normalize(42)  # type: ignore[call-arg]
+
+    def test_downwind_vertex_square(self):
+        """Test downwind vertex and index on a canonical CCW square."""
+        # Square corners: SW 0:(0,0), SE 1:(0,2), NE 2:(2,2), NW 3:(2,0)
+        square_pts = [(0.0, 0.0), (0.0, 2.0), (2.0, 2.0), (2.0, 0.0)]
+        perimeter = SensorPerimeter(square_pts)
+
+        # Wind blowing North-East: downwind is NE (2, 2) at index 2
+        wind_ne = Vector.normalize(1.0, 1.0)
+        assert perimeter.downwind_vertex(wind_ne) == ((2.0, 2.0), 2)
+
+        # Wind blowing South-West: downwind is SW (0, 0) at index 0
+        wind_sw = Vector.normalize(-1.0, -1.0)
+        assert perimeter.downwind_vertex(wind_sw) == ((0.0, 0.0), 0)
+
+        # Wind blowing North-West: downwind is NW (2, 0) at index 3
+        wind_nw = Vector.normalize(-1.0, 1.0)
+        assert perimeter.downwind_vertex(wind_nw) == ((2.0, 0.0), 3)
+
+        # Wind blowing South-East: downwind is SE (0, 2) at index 1
+        wind_se = Vector.normalize(1.0, -1.0)
+        assert perimeter.downwind_vertex(wind_se) == ((0.0, 2.0), 1)
+
+        # Tie-breaking test: Wind East (1, 0) is perpendicular to edge (0,2) -> (2,2)
+        # Both index 1 (0,2) and index 2 (2,2) have maximum Eastward projection.
+        # Downwind_vertex returns the first vertex in CCW traversal order (index 1).
+        wind_east = Vector(1.0, 0.0)
+        assert perimeter.downwind_vertex(wind_east) == ((0.0, 2.0), 1)
+
+    def test_downwind_vertex_acapulco_eddy(self):
+        """Test downwind vertex and index on the Acapulco eddy buoy perimeter."""
+        perimeter = SensorPerimeter(ACAPULCO_EDDY_SAMPLE_VERTICES)
+
+        # 0: (14.29, -101.64) - furthest North
+        # 1: (13.87, -102.88) - furthest West
+        # 2: (12.93, -102.82)
+        # 3: (12.45, -101.67) - furthest South
+        # 4: (12.97, -100.53) - furthest East
+        # 5: (13.79, -100.59)
+
+        # Wind blowing North (u=0, v=1) -> furthest North vertex at index 0
+        wind_north = Vector(u=0.0, v=1.0)
+        assert perimeter.downwind_vertex(wind_north) == ((14.29, -101.64), 0)
+
+        # Wind blowing South (u=0, v=-1) -> furthest South vertex at index 3
+        wind_south = Vector(u=0.0, v=-1.0)
+        assert perimeter.downwind_vertex(wind_south) == ((12.45, -101.67), 3)
+
+        # Wind blowing West (u=-1, v=0) -> furthest West vertex at index 1
+        wind_west = Vector(u=-1.0, v=0.0)
+        assert perimeter.downwind_vertex(wind_west) == ((13.87, -102.88), 1)
+
+        # Wind blowing East (u=1, v=0) -> furthest East vertex at index 4
+        wind_east = Vector(u=1.0, v=0.0)
+        assert perimeter.downwind_vertex(wind_east) == ((12.97, -100.53), 4)
+
+        # Non-unit wind vector works identically
+        wind_north_scaled = Vector(u=0.0, v=45.0)
+        assert perimeter.downwind_vertex(wind_north_scaled) == ((14.29, -101.64), 0)
+
+        # Invalid wind vector errors
+        with pytest.raises(ValueError, match="non-zero magnitude"):
+            perimeter.downwind_vertex(Vector(0.0, 0.0))
+
+        # wind must be a Vector instance
+        with pytest.raises(TypeError, match="wind must be a Vector"):
+            perimeter.downwind_vertex([0.0, 50.0])  # type: ignore[arg-type]
 
     def test_perimeter_km_property(self):
         """Test perimeter_km equals the sum of edge lengths."""
@@ -375,7 +475,7 @@ class TestSensorPerimeterAndEdges:
         perimeter = SensorPerimeter(ACAPULCO_EDDY_SAMPLE_VERTICES)
         for edge in perimeter.edges:
             n = edge.normal()
-            assert isinstance(n, NormalVector)
+            assert isinstance(n, Vector)
             magnitude = math.hypot(n.u, n.v)
             assert math.isclose(magnitude, 1.0, rel_tol=1e-9)
 

@@ -11,7 +11,7 @@ import csv
 import math
 from collections.abc import Sequence
 from pathlib import Path
-from typing import NamedTuple
+from dataclasses import dataclass
 
 # Static copy of sample buoy locations around an eddy near Acapulco
 # (from test_data/6_points_around_acapulco_eddy.csv)
@@ -29,11 +29,27 @@ EARTH_RADIUS_KM = 6371.0088
 KM_PER_DEG_LAT = 111.139
 
 
-class NormalVector(NamedTuple):
-    """2D unit normal vector (u, v) where u is Eastward and v is Northward."""
+@dataclass(frozen=True, slots=True)
+class Vector:
+    """2D vector (u, v) where u is Eastward and v is Northward."""
 
     u: float  # Eastward / zonal component (dx)
     v: float  # Northward / meridional component (dy)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "u", float(self.u))
+        object.__setattr__(self, "v", float(self.v))
+
+    def __iter__(self):
+        yield self.u
+        yield self.v
+
+    def __getitem__(self, index: int) -> float:
+        if index == 0:
+            return self.u
+        elif index == 1:
+            return self.v
+        raise IndexError(f"Vector index out of range: {index}")
 
     @property
     def x(self) -> float:
@@ -55,11 +71,21 @@ class NormalVector(NamedTuple):
         """Northward component."""
         return self.v
 
-    def dot(self, other: NormalVector | Sequence[float]) -> float:
-        """Compute the scalar dot product with another NormalVector.
+    @property
+    def magnitude(self) -> float:
+        """Magnitude (Euclidean length, i.e. radius r) of the vector."""
+        return math.hypot(self.u, self.v)
+
+    @property
+    def angle(self) -> float:
+        """Counterclockwise polar angle (theta) from the positive x/Eastward axis in radians [-pi, pi]."""
+        return math.atan2(self.v, self.u)
+
+    def dot(self, other: Vector | Sequence[float]) -> float:
+        """Compute the scalar dot product with another Vector or 2D sequence.
 
         Args:
-            other: Another NormalVector instance (or 2-element sequence).
+            other: Another Vector instance or 2-element sequence.
 
         Returns:
             The scalar dot product: self.u * other.u + self.v * other.v.
@@ -67,22 +93,41 @@ class NormalVector(NamedTuple):
         Raises:
             TypeError: If other cannot be treated as a 2D vector.
         """
+        if isinstance(other, Vector):
+            return self.u * other.u + self.v * other.v
         if hasattr(other, "u") and hasattr(other, "v"):
             return float(self.u * other.u + self.v * other.v)
         if isinstance(other, Sequence) and len(other) == 2:
             return float(self.u * other[0] + self.v * other[1])
         raise TypeError(f"Cannot compute dot product with object of type {type(other).__name__}")
 
-    def dot_product(self, other: NormalVector | Sequence[float]) -> float:
-        """Alias for :meth:`dot`."""
-        return self.dot(other)
-
-    def __matmul__(self, other: NormalVector | Sequence[float]) -> float:
-        """The @ operator computes the dot product: normal1 @ normal2."""
+    def __matmul__(self, other: Vector | Sequence[float]) -> float:
+        """The @ operator computes the dot product: v1 @ v2."""
         try:
             return self.dot(other)
         except TypeError:
             return NotImplemented
+
+    @staticmethod
+    def normalize(u: float, v: float) -> Vector:
+        """Construct a unit Vector by normalizing the given (u, v) components.
+
+        Args:
+            u: Eastward component.
+            v: Northward component.
+
+        Returns:
+            A unit Vector with magnitude 1.0 pointing in the direction of (u, v).
+
+        Raises:
+            ValueError: If the vector has zero magnitude (u=0, v=0).
+        """
+        u_val = float(u)
+        v_val = float(v)
+        length = math.hypot(u_val, v_val)
+        if length < 1e-15:
+            raise ValueError("Cannot normalize a zero-length vector.")
+        return Vector(u=u_val / length, v=v_val / length)
 
 
 class SensorEdge:
@@ -126,7 +171,7 @@ class SensorEdge:
         dy_km = (self._v2[0] - self._v1[0]) * KM_PER_DEG_LAT
         return math.hypot(dx_km, dy_km)
 
-    def normal(self, metric: bool = True) -> NormalVector:
+    def normal(self, metric: bool = True) -> Vector:
         """Return the outward-pointing 2D unit vector normal to this edge.
 
         For a counterclockwise-traversed perimeter edge from v1 to v2,
@@ -138,7 +183,7 @@ class SensorEdge:
                 If False, computes the normal in unprojected (degree) Cartesian space.
 
         Returns:
-            NormalVector(u, v) with magnitude 1.0, where u is Eastward and v is Northward.
+            Vector(u, v) with magnitude 1.0, where u is Eastward and v is Northward.
 
         Raises:
             ValueError: If the edge has zero length (v1 == v2).
@@ -157,7 +202,7 @@ class SensorEdge:
         if length < 1e-15:
             raise ValueError("Cannot compute normal of a zero-length edge.")
 
-        return NormalVector(u=nx / length, v=ny / length)
+        return Vector(u=nx / length, v=ny / length)
 
     def __repr__(self) -> str:
         return f"SensorEdge(v1={self._v1}, v2={self._v2})"
@@ -240,6 +285,64 @@ class SensorPerimeter:
     def perimeter_km(self) -> float:
         """Return the total perimeter length in kilometers."""
         return sum(edge.length_km() for edge in self.edges)
+
+    def downwind_vertex(
+        self,
+        wind: Vector,
+        metric: bool = True,
+    ) -> tuple[tuple[float, float], int]:
+        """Return the polygon vertex and its index that is furthest downwind.
+
+        The wind vector points in the direction the wind is blowing toward
+        (oceanographic / vector flow convention, reverse of meteorological 'from' direction).
+        The furthest downwind vertex is the vertex with the maximum projection along
+        the wind flow direction vector.
+
+        If the wind is perpendicular to a boundary edge resulting in equal maximum
+        projections for multiple vertices, the vertex encountered first in the
+        counterclockwise traversal order is returned.
+
+        Args:
+            wind: A Vector indicating wind flow direction (u=Eastward, v=Northward).
+                Must have non-zero magnitude.
+            metric: If True (default), accounts for meridian convergence on a spherical
+                Earth by scaling longitude differences by cos(mean_latitude).
+                If False, computes projection in planar (degree) Cartesian space.
+
+        Returns:
+            A tuple of (vertex, index), where vertex is (latitude, longitude)
+            and index is the 0-based integer position in self.vertices.
+
+        Raises:
+            ValueError: If the perimeter has no vertices or the wind vector has zero magnitude.
+            TypeError: If wind is not a Vector instance.
+        """
+        if not self._vertices:
+            raise ValueError("Perimeter has no vertices.")
+
+        if not isinstance(wind, Vector):
+            raise TypeError(f"wind must be a Vector, got {type(wind).__name__}")
+
+        if wind.magnitude < 1e-15:
+            raise ValueError("Wind vector must have non-zero magnitude.")
+
+        c_lat, c_lon = self._centroid
+
+        def projection(pt: tuple[float, float]) -> float:
+            lat, lon = pt
+            if metric:
+                dx = (lon - c_lon) * math.cos(math.radians(c_lat))
+            else:
+                dx = lon - c_lon
+            dy = lat - c_lat
+            disp = Vector(u=dx, v=dy)
+            return disp @ wind
+
+        best_idx, best_vertex = max(
+            enumerate(self._vertices),
+            key=lambda item: projection(item[1]),
+        )
+        return best_vertex, best_idx
 
     @staticmethod
     def _spans_international_date_line(lons: Sequence[float]) -> bool:
