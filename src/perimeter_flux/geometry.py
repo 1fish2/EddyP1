@@ -1,7 +1,7 @@
 """Ocean eddy geometric computations and polygon validation utility for perimeter flux.
 
 Provides geometric validation and counterclockwise polygon sorting for ocean eddies,
-such as buoy arrays, sensor networks, and vortex boundaries.
+such as craft (buoy/ASV) arrays, sensor networks, and vortex boundaries.
 Part of the Atmospheric CO₂ Perimeter Flux (ACPF / perimeter_flux) package.
 """
 
@@ -10,10 +10,13 @@ from __future__ import annotations
 import csv
 import math
 from collections.abc import Sequence
-from pathlib import Path
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
 
-# Static copy of sample buoy locations around an eddy near Acapulco
+NEARLY_0 = 1e-15
+
+# Static copy of sample craft locations around an eddy near Acapulco
 # (from test_data/6_points_around_acapulco_eddy.csv)
 ACAPULCO_EDDY_SAMPLE_VERTICES: tuple[tuple[float, float], ...] = (
     (14.29, -101.64),
@@ -125,9 +128,106 @@ class Vector:
         u_val = float(u)
         v_val = float(v)
         length = math.hypot(u_val, v_val)
-        if length < 1e-15:
+        if length < NEARLY_0:
             raise ValueError("Cannot normalize a zero-length vector.")
         return Vector(u=u_val / length, v=v_val / length)
+
+
+@dataclass(frozen=True, slots=True)
+class CraftSample:
+    """Telemetry data sample sent by a craft (ASV or buoy) at a particular time.
+
+    Holds the craft's ID string, GMT timestamp, craft (latitude, longitude) position,
+    CO2 air concentration readings from two CO2 sensors, and wind vector (u, v).
+    """
+
+    craft_id: str
+    timestamp: datetime
+    position: tuple[float, float]
+    co2_1: float
+    co2_2: float
+    wind: Vector
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "craft_id", str(self.craft_id))
+
+        # Handle GMT / UTC timestamp
+        ts = self.timestamp
+        if isinstance(ts, str):
+            ts = datetime.fromisoformat(ts)
+        if not isinstance(ts, datetime):
+            raise TypeError(f"timestamp must be a datetime, got {type(ts).__name__}")
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        else:
+            ts = ts.astimezone(timezone.utc)
+        object.__setattr__(self, "timestamp", ts)
+
+        # Handle (latitude, longitude) position
+        if not (isinstance(self.position, Sequence) and len(self.position) == 2):
+            raise ValueError(
+                f"position must be a (latitude, longitude) pair, got: {self.position!r}"
+            )
+        try:
+            lat = float(self.position[0])
+            lon = float(self.position[1])
+        except (ValueError, TypeError) as err:
+            raise ValueError(
+                f"position coordinates must be numeric, got: {self.position!r}"
+            ) from err
+
+        if math.isnan(lat) or math.isnan(lon) or math.isinf(lat) or math.isinf(lon):
+            raise ValueError(
+                f"position coordinates must be finite real numbers, got: ({lat}, {lon})"
+            )
+        if lat < -90.0 or lat > 90.0:
+            raise ValueError(f"latitude {lat}° outside valid [-90, 90] range.")
+        if lon < -180.0 or lon > 360.0:
+            raise ValueError(f"longitude {lon}° outside valid [-180, 360] range.")
+        object.__setattr__(self, "position", (lat, lon))
+
+        # Handle CO2 sensor concentration readings
+        try:
+            c1 = float(self.co2_1)
+            c2 = float(self.co2_2)
+        except (ValueError, TypeError) as err:
+            raise ValueError(
+                f"CO2 sensor readings must be numeric, got co2_1={self.co2_1!r}, co2_2={self.co2_2!r}"
+            ) from err
+        if math.isnan(c1) or math.isnan(c2) or math.isinf(c1) or math.isinf(c2):
+            raise ValueError(
+                f"CO2 readings must be finite real numbers, got co2_1={c1}, co2_2={c2}"
+            )
+        object.__setattr__(self, "co2_1", c1)
+        object.__setattr__(self, "co2_2", c2)
+
+        # Handle wind vector
+        w = self.wind
+        if isinstance(w, Vector):
+            object.__setattr__(self, "wind", w)
+        elif isinstance(w, Sequence) and len(w) == 2:
+            object.__setattr__(self, "wind", Vector(u=float(w[0]), v=float(w[1])))
+        elif hasattr(w, "u") and hasattr(w, "v"):
+            object.__setattr__(self, "wind", Vector(u=float(w.u), v=float(w.v)))
+        else:
+            raise TypeError(
+                f"wind must be a Vector instance or (u, v) sequence, got {type(w).__name__}"
+            )
+
+    @property
+    def latitude(self) -> float:
+        """Craft latitude coordinate in degrees."""
+        return self.position[0]
+
+    @property
+    def longitude(self) -> float:
+        """Craft longitude coordinate in degrees."""
+        return self.position[1]
+
+    @property
+    def mean_co2(self) -> float:
+        """Mean CO2 air concentration reading across both sensors."""
+        return (self.co2_1 + self.co2_2) / 2.0
 
 
 class SensorEdge:
@@ -199,7 +299,7 @@ class SensorEdge:
         nx = dy
         ny = -dx
         length = math.hypot(nx, ny)
-        if length < 1e-15:
+        if length < NEARLY_0:
             raise ValueError("Cannot compute normal of a zero-length edge.")
 
         return Vector(u=nx / length, v=ny / length)
@@ -214,7 +314,7 @@ class SensorEdge:
 
 
 class SensorPerimeter:
-    """The polygon perimeter for a set of ocean sensor buoys/ASVs."""
+    """The polygon perimeter for a set of ocean craft."""
 
     def __init__(
         self,
@@ -323,7 +423,7 @@ class SensorPerimeter:
         if not isinstance(wind, Vector):
             raise TypeError(f"wind must be a Vector, got {type(wind).__name__}")
 
-        if wind.magnitude < 1e-15:
+        if wind.magnitude < NEARLY_0:
             raise ValueError("Wind vector must have non-zero magnitude.")
 
         c_lat, c_lon = self._centroid

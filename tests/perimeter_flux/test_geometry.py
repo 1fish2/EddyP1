@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import math
+from dataclasses import FrozenInstanceError
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 import pytest
 
 from perimeter_flux.geometry import (
     ACAPULCO_EDDY_SAMPLE_VERTICES,
+    CraftSample,
     Vector,
     SensorEdge,
     SensorPerimeter,
@@ -551,3 +554,304 @@ class TestSensorPerimeterAndEdges:
         degenerate_edge = SensorEdge((10.0, -100.0), (10.0, -100.0))
         with pytest.raises(ValueError, match="zero-length edge"):
             degenerate_edge.normal()
+
+
+class TestCraftSample:
+    """Tests for CraftSample frozen dataclass with slots."""
+
+    def test_craft_sample_creation(self):
+        """Test creating a CraftSample with standard fields."""
+        dt = datetime(2026, 10, 26, 12, 0, 0, tzinfo=timezone.utc)
+        sample = CraftSample(
+            craft_id="ASV-01",
+            timestamp=dt,
+            position=(14.29, -101.64),
+            co2_1=415.5,
+            co2_2=416.1,
+            wind=Vector(u=3.2, v=-1.8),
+        )
+
+        assert sample.craft_id == "ASV-01"
+        assert sample.timestamp == dt
+        assert sample.position == (14.29, -101.64)
+        assert sample.co2_1 == 415.5
+        assert sample.co2_2 == 416.1
+        assert sample.wind == Vector(u=3.2, v=-1.8)
+
+    def test_craft_sample_frozen_immutability(self):
+        """Test that modifying any attribute of CraftSample raises FrozenInstanceError."""
+        dt = datetime(2026, 10, 26, 12, 0, 0, tzinfo=timezone.utc)
+        sample = CraftSample(
+            craft_id="ASV-01",
+            timestamp=dt,
+            position=(14.29, -101.64),
+            co2_1=415.5,
+            co2_2=416.1,
+            wind=Vector(u=3.2, v=-1.8),
+        )
+
+        with pytest.raises(FrozenInstanceError):
+            sample.craft_id = "ASV-02"  # type: ignore[misc]
+
+        with pytest.raises(FrozenInstanceError):
+            sample.co2_1 = 420.0  # type: ignore[misc]
+
+        with pytest.raises(FrozenInstanceError):
+            sample.position = (10.0, -100.0)  # type: ignore[misc]
+
+    def test_craft_sample_slots(self):
+        """Test that CraftSample uses slots (has no __dict__) and forbids arbitrary new attributes."""
+        dt = datetime(2026, 10, 26, 12, 0, 0, tzinfo=timezone.utc)
+        sample = CraftSample(
+            craft_id="ASV-01",
+            timestamp=dt,
+            position=(14.29, -101.64),
+            co2_1=415.5,
+            co2_2=416.1,
+            wind=Vector(u=3.2, v=-1.8),
+        )
+
+        assert not hasattr(sample, "__dict__")
+        assert set(sample.__slots__) == {
+            "craft_id",
+            "timestamp",
+            "position",
+            "co2_1",
+            "co2_2",
+            "wind",
+        }
+
+        with pytest.raises((FrozenInstanceError, AttributeError)):
+            sample.arbitrary_attribute = "disallowed"  # type: ignore[attr-defined]
+
+    def test_craft_sample_properties(self):
+        """Test retained convenience properties on CraftSample."""
+        dt = datetime(2026, 10, 26, 12, 0, 0, tzinfo=timezone.utc)
+        sample = CraftSample(
+            craft_id="ASV-01",
+            timestamp=dt,
+            position=(14.29, -101.64),
+            co2_1=415.0,
+            co2_2=417.0,
+            wind=Vector(u=3.5, v=-2.5),
+        )
+
+        # Coordinate accessors
+        assert sample.latitude == 14.29
+        assert sample.longitude == -101.64
+
+        # Mean CO2 accessor
+        assert math.isclose(sample.mean_co2, 416.0, abs_tol=1e-9)
+
+    def test_craft_sample_timestamp_coercions(self):
+        """Test timezone handling for naive datetimes, timezone-aware datetimes, and ISO strings."""
+        # 1. Naive datetime is interpreted as GMT/UTC
+        naive_dt = datetime(2026, 10, 26, 15, 30, 0)
+        sample_naive = CraftSample(
+            craft_id="BUOY-01",
+            timestamp=naive_dt,
+            position=(12.0, -100.0),
+            co2_1=412.0,
+            co2_2=412.5,
+            wind=Vector(1.0, 2.0),
+        )
+        assert sample_naive.timestamp.tzinfo == timezone.utc
+        assert sample_naive.timestamp.hour == 15
+
+        # 2. Aware datetime with non-UTC offset converted to UTC
+        pst = timezone(timedelta(hours=-7))
+        aware_dt = datetime(2026, 10, 26, 8, 30, 0, tzinfo=pst)
+        sample_aware = CraftSample(
+            craft_id="BUOY-01",
+            timestamp=aware_dt,
+            position=(12.0, -100.0),
+            co2_1=412.0,
+            co2_2=412.5,
+            wind=Vector(1.0, 2.0),
+        )
+        assert sample_aware.timestamp.tzinfo == timezone.utc
+        assert sample_aware.timestamp.hour == 15
+
+        # 3. ISO format string parsed directly
+        sample_iso = CraftSample(
+            craft_id="BUOY-01",
+            timestamp="2026-10-26T15:30:00Z",
+            position=(12.0, -100.0),
+            co2_1=412.0,
+            co2_2=412.5,
+            wind=Vector(1.0, 2.0),
+        )
+        assert sample_iso.timestamp.tzinfo == timezone.utc
+        assert sample_iso.timestamp.hour == 15
+
+        # 4. Invalid timestamp type
+        with pytest.raises(TypeError, match="timestamp must be a datetime"):
+            CraftSample(
+                craft_id="BUOY-01",
+                timestamp=123456789,  # type: ignore[arg-type]
+                position=(12.0, -100.0),
+                co2_1=412.0,
+                co2_2=412.5,
+                wind=Vector(1.0, 2.0),
+            )
+
+    def test_craft_sample_wind_coercions(self):
+        """Test accepting wind as a Vector instance or 2-element sequence."""
+        dt = datetime(2026, 10, 26, 12, 0, 0, tzinfo=timezone.utc)
+
+        # Vector instance
+        sample1 = CraftSample(
+            craft_id="ASV-1",
+            timestamp=dt,
+            position=(13.0, -101.0),
+            co2_1=410.0,
+            co2_2=410.2,
+            wind=Vector(2.0, -4.0),
+        )
+        assert isinstance(sample1.wind, Vector)
+        assert sample1.wind.u == 2.0 and sample1.wind.v == -4.0
+
+        # Tuple (u, v) sequence
+        sample2 = CraftSample(
+            craft_id="ASV-1",
+            timestamp=dt,
+            position=(13.0, -101.0),
+            co2_1=410.0,
+            co2_2=410.2,
+            wind=(2.0, -4.0),  # type: ignore[arg-type]
+        )
+        assert isinstance(sample2.wind, Vector)
+        assert sample2.wind == Vector(2.0, -4.0)
+
+        # Invalid wind type
+        with pytest.raises(TypeError, match="wind must be a Vector"):
+            CraftSample(
+                craft_id="ASV-1",
+                timestamp=dt,
+                position=(13.0, -101.0),
+                co2_1=410.0,
+                co2_2=410.2,
+                wind=100.0,  # type: ignore[arg-type]
+            )
+
+    def test_craft_sample_position_validation(self):
+        """Test position sanity checks and conversion."""
+        dt = datetime(2026, 10, 26, 12, 0, 0, tzinfo=timezone.utc)
+
+        # Latitude out of range
+        with pytest.raises(ValueError, match="latitude 95.0° outside valid"):
+            CraftSample(
+                craft_id="ASV-1",
+                timestamp=dt,
+                position=(95.0, -100.0),
+                co2_1=410.0,
+                co2_2=410.0,
+                wind=Vector(1.0, 1.0),
+            )
+
+        # Longitude out of range
+        with pytest.raises(ValueError, match="longitude 400.0° outside valid"):
+            CraftSample(
+                craft_id="ASV-1",
+                timestamp=dt,
+                position=(10.0, 400.0),
+                co2_1=410.0,
+                co2_2=410.0,
+                wind=Vector(1.0, 1.0),
+            )
+
+        # Non-numeric coordinate
+        with pytest.raises(ValueError, match="position coordinates must be numeric"):
+            CraftSample(
+                craft_id="ASV-1",
+                timestamp=dt,
+                position=("not_a_num", -100.0),  # type: ignore[arg-type]
+                co2_1=410.0,
+                co2_2=410.0,
+                wind=Vector(1.0, 1.0),
+            )
+
+        # NaN / Inf coordinate
+        with pytest.raises(ValueError, match="finite real numbers"):
+            CraftSample(
+                craft_id="ASV-1",
+                timestamp=dt,
+                position=(float("nan"), -100.0),
+                co2_1=410.0,
+                co2_2=410.0,
+                wind=Vector(1.0, 1.0),
+            )
+
+        # Non-pair position
+        with pytest.raises(ValueError, match="must be a \\(latitude, longitude\\) pair"):
+            CraftSample(
+                craft_id="ASV-1",
+                timestamp=dt,
+                position=(10.0,),  # type: ignore[arg-type]
+                co2_1=410.0,
+                co2_2=410.0,
+                wind=Vector(1.0, 1.0),
+            )
+
+    def test_craft_sample_co2_validation(self):
+        """Test CO2 concentration parsing and validation."""
+        dt = datetime(2026, 10, 26, 12, 0, 0, tzinfo=timezone.utc)
+
+        # Integer or numeric string CO2 readings coerce to float
+        sample = CraftSample(
+            craft_id="ASV-1",
+            timestamp=dt,
+            position=(10.0, -100.0),
+            co2_1=415,  # type: ignore[arg-type]
+            co2_2="416.5",  # type: ignore[arg-type]
+            wind=Vector(1.0, 1.0),
+        )
+        assert sample.co2_1 == 415.0
+        assert sample.co2_2 == 416.5
+
+        # NaN / inf CO2 readings rejected
+        with pytest.raises(ValueError, match="finite real numbers"):
+            CraftSample(
+                craft_id="ASV-1",
+                timestamp=dt,
+                position=(10.0, -100.0),
+                co2_1=float("nan"),
+                co2_2=416.0,
+                wind=Vector(1.0, 1.0),
+            )
+
+    def test_craft_sample_equality_and_hashing(self):
+        """Test that identical CraftSample instances are equal and can be hashed in sets/dicts."""
+        dt = datetime(2026, 10, 26, 12, 0, 0, tzinfo=timezone.utc)
+        sample1 = CraftSample(
+            craft_id="ASV-01",
+            timestamp=dt,
+            position=(14.29, -101.64),
+            co2_1=415.0,
+            co2_2=417.0,
+            wind=Vector(u=3.5, v=-2.5),
+        )
+        sample2 = CraftSample(
+            craft_id="ASV-01",
+            timestamp=dt,
+            position=(14.29, -101.64),
+            co2_1=415.0,
+            co2_2=417.0,
+            wind=Vector(u=3.5, v=-2.5),
+        )
+        sample3 = CraftSample(
+            craft_id="ASV-02",
+            timestamp=dt,
+            position=(14.29, -101.64),
+            co2_1=415.0,
+            co2_2=417.0,
+            wind=Vector(u=3.5, v=-2.5),
+        )
+
+        assert sample1 == sample2
+        assert sample1 != sample3
+        assert hash(sample1) == hash(sample2)
+
+        sample_set = {sample1, sample2, sample3}
+        assert len(sample_set) == 2
+        assert sample1 in sample_set
