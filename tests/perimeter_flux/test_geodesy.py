@@ -17,16 +17,7 @@ from perimeter_flux.geodesy import (
     project_latlon_to_local_en,
 )
 
-# Sample ASV locations around an eddy near Acapulco
-# (from test_data/6_points_around_acapulco_eddy.csv)
-ACAPULCO_EDDY_SAMPLE_VERTICES: tuple[tuple[float, float], ...] = (
-    (14.29, -101.64),
-    (13.87, -102.88),
-    (12.93, -102.82),
-    (12.45, -101.67),
-    (12.97, -100.53),
-    (13.79, -100.59),
-)
+from tests.perimeter_flux.sample_data import ACAPULCO_EDDY_VERTICES
 
 WGS84_SEMI_MINOR_M = WGS84_SEMI_MAJOR_M * (1.0 - WGS84_FLATTENING)
 
@@ -239,8 +230,8 @@ class TestECEFOriginFromPoints:
     """Verify IDL-safe 3D centroid origin projected onto the sea-level ellipsoid."""
 
     def test_origin_projects_onto_sea_level_ellipsoid(self):
-        lats = [p[0] for p in ACAPULCO_EDDY_SAMPLE_VERTICES]
-        lons = [p[1] for p in ACAPULCO_EDDY_SAMPLE_VERTICES]
+        lats = [p[0] for p in ACAPULCO_EDDY_VERTICES]
+        lons = [p[1] for p in ACAPULCO_EDDY_VERTICES]
         xyz = latlon_to_ecef(lats, lons)
 
         origin_lat_rad, origin_lon_rad, origin_xyz = ecef_origin_from_points(xyz)
@@ -268,8 +259,8 @@ class TestProjectLatLonToLocalEN:
     """Acapulco eddy distance accuracy and International Date Line continuity."""
 
     def test_acapulco_eddy_orientation_and_metric_distances(self):
-        lats = np.array([p[0] for p in ACAPULCO_EDDY_SAMPLE_VERTICES], dtype=np.float64)
-        lons = np.array([p[1] for p in ACAPULCO_EDDY_SAMPLE_VERTICES], dtype=np.float64)
+        lats = np.array([p[0] for p in ACAPULCO_EDDY_VERTICES], dtype=np.float64)
+        lons = np.array([p[1] for p in ACAPULCO_EDDY_VERTICES], dtype=np.float64)
 
         xy_m, origin_lat_deg, origin_lon_deg = project_latlon_to_local_en(lats, lons)
         assert xy_m.shape == (6, 2)
@@ -308,8 +299,8 @@ class TestProjectLatLonToLocalEN:
 
     def test_international_date_line_continuity_and_shift_invariance(self):
         # Rotate Acapulco eddy around Earth's polar axis to straddle +/-180 deg
-        lats = np.array([p[0] for p in ACAPULCO_EDDY_SAMPLE_VERTICES], dtype=np.float64)
-        lons_acapulco = np.array([p[1] for p in ACAPULCO_EDDY_SAMPLE_VERTICES], dtype=np.float64)
+        lats = np.array([p[0] for p in ACAPULCO_EDDY_VERTICES], dtype=np.float64)
+        lons_acapulco = np.array([p[1] for p in ACAPULCO_EDDY_VERTICES], dtype=np.float64)
 
         # Shift so mean longitude sits directly on 180 deg, wrapped into [-180, 180]
         mean_lon = float(np.mean(lons_acapulco))
