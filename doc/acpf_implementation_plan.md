@@ -1,3 +1,4 @@
+<!--suppress ALL -->
 # Implementation Plan: Core ACPF Flux Computation (Extended Milestone)
 
 This plan covers the ground-up design and test-driven implementation of the **Atmospheric $\text{CO}_2$ Perimeter Flux (ACPF)** computation using **NumPy, SciPy (`scipy.spatial.ConvexHull`, `scipy.interpolate`), Polars, Marimo, Altair, and Pytest**, replacing the initial [geometry.py](file:///Users/jerry/dev/EddyP1/src/perimeter_flux/geometry.py) prototype (which remains untouched until you choose to delete it).

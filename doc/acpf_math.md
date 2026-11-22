@@ -1,3 +1,4 @@
+<!--suppress ALL -->
 # Atmospheric $\text{CO}_2$ Perimeter Flux (ACPF) Mathematical Specification
 
 This document is the persistent mathematical reference for the EddyP1 Atmospheric $\text{CO}_2$ Perimeter Flux (ACPF) computation. All symbols are globally unique across sections (zero symbol collisions). Each implementation module mirrors the relevant equations and glossary entries inline next to its algorithm stage.

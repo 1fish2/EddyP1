@@ -29,4 +29,6 @@ method described in:
 * Data of various types from various satellites become available with different delay times. Some sources provide less accurate "near real time" data within days, then provide more accurate data after more days or weeks.
 * Combine or switch between satellite vs. ASV wind data.
 * Measure or compute the factors that limit accuracy.
-* Keep a list of small effects to consider later.
+* Keep a list of small effects to consider later (also tracked in `doc/acpf_math.md` Section 7):
+  * **Local ENU tangent-plane vs. ellipsoidal geodesic geometry**: At ~200 km eddy scale, flat WGS 84 ENU horizontal chord-vs-arc distortion is < 0.02% (~8 m) and fractional area error scales as `(L / 2R)²`, negligible relative to wind and MBLH uncertainties. If deployments ever approach ~1000 km scale, consider switching to Karney ellipsoidal geodesic lengths/areas.
+  * **ASV drift velocity frame & moving-boundary Reynolds correction**: Computing hourly ASV drift in a shared midpoint ENU frame avoids origin-shift drift when the hull centroid moves and provides `(u, v)` components for future `(w - w_asv) · n` moving-boundary corrections; for scalar speed alone, the 3D ECEF chord norm `‖X_k - X_{k-1}‖ / Δt` agrees to `< 1e-6` over hourly ASV displacements.

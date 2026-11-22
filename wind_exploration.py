@@ -142,6 +142,7 @@ def _(enriched_df, lat_slider, pl, speed_slider):
     return (filtered_df,)
 
 
+# noinspection string-format
 @app.cell(hide_code=True)
 def _(filtered_df, mo):
     mo.md(f"""
