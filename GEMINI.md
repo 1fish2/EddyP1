@@ -9,6 +9,8 @@
 - **Environment**: The virtual environment is managed by `uv` in `.venv/` based on `pyproject.toml`.
 - **Tech stack**: Leverage Numpy, Scipy, scipy.spatial.ConvexHull, Polars, Marimo, and Pytest to do what they do best. If there are more fitting libraries or additional fitting libraries for the purpose, point that out.
 - **Testing & Execution**: Maintain `uv run pytest` as a way to run the tests.
+- **Tools**: Support PyCharm, Antigravity, and Antigravity IDE.
+- **LaTeX in Markdown**: PyCharm parses Markdown a little differently. For LaTeX in Markdown, PyCharm doesn't parse `($` as the start of a LaTeX expression inside a parenthetical remark. So either insert a zero-width space to separate the beginning `$`, e.g. `(​$x$)`, or move the parentheses to be inside the LaTeX expression, e.g. `$(x)$`. Similarly, at the start of a bold or italic text span, insert a zero-width space before the `$` that begins a LaTeX expression, e.g. `**​$N = 2$ baseline**`, or move the LaTeX expression outside the span, e.g. `$N = 2$ **baseline**`. Within a table, quote each `|` within a LaTeX expression so it doesn't parse as a column separator, e.g. `\|`; better yet, switch to `\lvert`/`\rvert` or `\lVert`/`\rVert`.
 
 ## Design Philosophy
 - **Test Driven Development**: Maintain thorough automated tests for the floating point math computations, and write the tests first. Also write tests for the visualization code.

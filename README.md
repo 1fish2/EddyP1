@@ -26,6 +26,7 @@ method described in:
 * Compare data from 2 sensors per buoy to look for sensor measurement problems. Experiment with how to handle discrepancies.
 * Plan to discard or interpolate across problematic time intervals like a nearby passing diesel ship or rapid wind direction change.
 * Simulate sensor data for testing the visualization and the computation, including handling bad sensor values and temporary situations.
+* Data of various types from various satellites become available with different delay times. Some sources provide less accurate "near real time" data within days, then provide more accurate data after more days or weeks.
 * Combine or switch between satellite vs. ASV wind data.
 * Measure or compute the factors that limit accuracy.
 * Keep a list of small effects to consider later.
