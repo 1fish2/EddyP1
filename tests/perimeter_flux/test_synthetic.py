@@ -37,6 +37,7 @@ class TestSyntheticRegistryAndSchemas:
             "steady_drawdown",
             "async_sailboat_motion",
             "synoptic_front_storage",
+            "sharp_front_7asv",
             "unstable_wind_and_mblh",
             "dual_co2_sensor_fault",
             "degraded_geometry_and_outages",
@@ -63,7 +64,8 @@ class TestSyntheticRegistryAndSchemas:
         assert met1.schema["mblh_m"] == pl.Float64
 
         asv_ids = sorted(asv1["asv_id"].unique().to_list())
-        assert asv_ids == [f"Oshen{i}" for i in range(1, 7)]
+        expected_count = 7 if scenario_name == "sharp_front_7asv" else 6
+        assert asv_ids == [f"Oshen{i}" for i in range(1, expected_count + 1)]
 
     def test_unknown_scenario_raises_value_error(self):
         with pytest.raises(ValueError, match="Unknown scenario"):
@@ -158,6 +160,34 @@ class TestSyntheticPhysicsAndTargets:
         diffs = res.hourly["max_co2_sensor_diff_ppm"].to_numpy()
         assert np.any(np.isfinite(diffs) & (diffs > 4.0))  # +6 ppm spike
         assert np.any(np.isinf(diffs))  # Single-sensor null fallback
+
+    def test_sharp_front_7th_interior_asv_improves_storage_cancellation(self):
+        asv_df_7, met_df, meta = generate_scenario("sharp_front_7asv")
+        assert meta.expected_cdrr_tco2_hr == 0.0
+
+        res_7 = compute_acpf(asv_df_7, met_df)
+        # Perimeter-only 6-ASV comparison (excluding interior Oshen7)
+        res_6 = compute_acpf(asv_df_7.filter(pl.col("asv_id") != "Oshen7"), met_df)
+
+        assert (res_7.hourly["n_asvs_total"] == 7).all()
+        assert (res_7.hourly["n_asvs_hull"] == 6).all()
+        oshen7_rows = res_7.aligned_asvs.filter(pl.col("asv_id") == "Oshen7")
+        assert oshen7_rows.height == meta.n_hours
+        assert not oshen7_rows["on_hull"].any()
+
+        # Lateral perimeter flux is identical (uniform wind + identical 6-ASV hull)
+        np.testing.assert_allclose(
+            res_7.hourly["lateral_cdrr_tco2_hr"].to_numpy(),
+            res_6.hourly["lateral_cdrr_tco2_hr"].to_numpy(),
+            rtol=1e-10,
+        )
+
+        # Adding interior Oshen7 improves box-mean CO2 sampling and lowers peak residual |Phi_net|
+        max_lat = float(np.nanmax(np.abs(res_7.hourly["lateral_cdrr_tco2_hr"].to_numpy())))
+        max_net_7 = float(np.nanmax(np.abs(res_7.hourly["storage_adjusted_cdrr_tco2_hr"].to_numpy())))
+        max_net_6 = float(np.nanmax(np.abs(res_6.hourly["storage_adjusted_cdrr_tco2_hr"].to_numpy())))
+        assert max_lat > 100.0
+        assert max_net_7 < max_net_6
 
     def test_degraded_geometry_includes_interior_asv_and_outages(self):
         asv_df, met_df, _ = generate_scenario("degraded_geometry_and_outages")

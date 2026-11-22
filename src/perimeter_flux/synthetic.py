@@ -37,6 +37,7 @@ SCENARIO_NAMES: tuple[str, ...] = (
     "steady_drawdown",
     "async_sailboat_motion",
     "synoptic_front_storage",
+    "sharp_front_7asv",
     "unstable_wind_and_mblh",
     "dual_co2_sensor_fault",
     "degraded_geometry_and_outages",
@@ -327,6 +328,60 @@ def _scenario_synoptic_front_storage(
     return _build_asv_df(rows), met_df, meta
 
 
+def _scenario_sharp_front_7asv(
+    start_time: datetime,
+    seed: int,
+    vertices: Sequence[tuple[float, float]],
+) -> tuple[pl.DataFrame, pl.DataFrame, ScenarioMetadata]:
+    """Sharp +2.0 ppm synoptic front (100 km width) with a 7th interior ASV at the eddy center."""
+    n_hours = 20
+    xy_hull, _, _, origin_xyz, rot = _prepare_frame(vertices)
+    u_wind, v_wind = 8.0, 0.0
+    mblh = 1000.0
+    t_center_sec = 10.0 * 3600.0
+    front_width_m = 100_000.0  # Sharp 100 km front where interior sampling helps box-mean CO2
+
+    # 7th interior ASV placed at local EN origin (0, 0) -> sea-level WGS 84 centroid
+    center_lat_arr, center_lon_arr = _en_to_latlon(np.zeros((1, 2), dtype=np.float64), origin_xyz, rot)
+    all_vertices = [*vertices, (float(center_lat_arr[0]), float(center_lon_arr[0]))]
+    all_x_m = [*xy_hull[:, 0].tolist(), 0.0]
+
+    times_sec = _regular_times_sec(n_hours, step_minutes=15.0)
+    rows: list[dict[str, object]] = []
+    for idx, ((lat, lon), x_i) in enumerate(zip(all_vertices, all_x_m, strict=True)):
+        asv_id = f"Oshen{idx + 1}"
+        for t_s in times_sec:
+            arg = (u_wind * (float(t_s) - t_center_sec) - x_i) / front_width_m
+            c = 418.0 + 1.0 * (1.0 + math.tanh(arg))
+            rows.append(
+                {
+                    "asv_id": asv_id,
+                    "timestamp": start_time + timedelta(seconds=float(t_s)),
+                    "latitude": float(lat),
+                    "longitude": float(lon),
+                    "co2_1": c,
+                    "co2_2": c,
+                    "u_wind": u_wind,
+                    "v_wind": v_wind,
+                }
+            )
+
+    met_df = _hourly_met(start_time, [mblh] * n_hours)
+    meta = ScenarioMetadata(
+        name="sharp_front_7asv",
+        description=(
+            "Sharp +2.0 ppm synoptic front (100 km width, zero ocean uptake) with a 7th interior "
+            "ASV (Oshen7) at the eddy center to improve box-mean CO2 storage cancellation."
+        ),
+        expected_cdrr_tco2_hr=0.0,
+        expected_error_bars=(ErrorBar.STABLE,),
+        start_time=start_time,
+        n_hours=n_hours,
+        seed=seed,
+    )
+    return _build_asv_df(rows), met_df, meta
+
+
 def _scenario_unstable_wind_and_mblh(
     start_time: datetime,
     seed: int,
@@ -590,6 +645,7 @@ _SCENARIO_BUILDERS = {
     "steady_drawdown": _scenario_steady_drawdown,
     "async_sailboat_motion": _scenario_async_sailboat_motion,
     "synoptic_front_storage": _scenario_synoptic_front_storage,
+    "sharp_front_7asv": _scenario_sharp_front_7asv,
     "unstable_wind_and_mblh": _scenario_unstable_wind_and_mblh,
     "dual_co2_sensor_fault": _scenario_dual_co2_sensor_fault,
     "degraded_geometry_and_outages": _scenario_degraded_geometry_and_outages,
