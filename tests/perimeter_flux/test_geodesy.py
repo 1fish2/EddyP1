@@ -16,7 +16,17 @@ from perimeter_flux.geodesy import (
     latlon_to_ecef,
     project_latlon_to_local_en,
 )
-from perimeter_flux.geometry import ACAPULCO_EDDY_SAMPLE_VERTICES
+
+# Sample ASV locations around an eddy near Acapulco
+# (from test_data/6_points_around_acapulco_eddy.csv)
+ACAPULCO_EDDY_SAMPLE_VERTICES: tuple[tuple[float, float], ...] = (
+    (14.29, -101.64),
+    (13.87, -102.88),
+    (12.93, -102.82),
+    (12.45, -101.67),
+    (12.97, -100.53),
+    (13.79, -100.59),
+)
 
 WGS84_SEMI_MINOR_M = WGS84_SEMI_MAJOR_M * (1.0 - WGS84_FLATTENING)
 
