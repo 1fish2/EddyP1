@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 
-import numpy as np
 import pytest
 
 from perimeter_flux.config import (
@@ -23,7 +22,6 @@ from perimeter_flux.flux import (
 )
 from perimeter_flux.geodesy import project_latlon_to_local_en
 from tests.perimeter_flux.sample_data import ACAPULCO_EDDY_VERTICES
-
 
 def _make_acapulco_observations(
     *,

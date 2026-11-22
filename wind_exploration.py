@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.25.1"
+__generated_with = "0.25.2"
 app = marimo.App(width="medium", sql_output="native")
 
 
@@ -32,7 +32,6 @@ def _(mo):
     return
 
 
-# noinspection pep8-naming
 @app.cell(hide_code=True)
 def _(Path, mo, pl):
     csv_file = Path("data/baja_2020_01_to_04_wind_geo.csv")
@@ -103,8 +102,8 @@ def _(math, pl, raw_df):
 def _(enriched_df, mo):
     min_lat = float(enriched_df["latitude"].min()) if len(enriched_df) > 0 else 0.0
     max_lat = float(enriched_df["latitude"].max()) if len(enriched_df) > 0 else 40.0
-    min_lon = float(enriched_df["longitude"].min()) if len(enriched_df) > 0 else -130.0
-    max_lon = float(enriched_df["longitude"].max()) if len(enriched_df) > 0 else -80.0
+    # min_lon = float(enriched_df["longitude"].min()) if len(enriched_df) > 0 else -130.0
+    # max_lon = float(enriched_df["longitude"].max()) if len(enriched_df) > 0 else -80.0
     max_speed_val = (
         float(enriched_df["wind_speed"].max()) if len(enriched_df) > 0 else 25.0
     )
@@ -142,7 +141,6 @@ def _(enriched_df, lat_slider, pl, speed_slider):
     return (filtered_df,)
 
 
-# noinspection string-format
 @app.cell(hide_code=True)
 def _(filtered_df, mo):
     mo.md(f"""
