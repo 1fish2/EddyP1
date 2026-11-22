@@ -24,7 +24,7 @@ from perimeter_flux.pipeline import (
     compute_acpf_from_aligned,
     summarize_window,
 )
-from tests.perimeter_flux.sample_data import ACAPULCO_EDDY_VERTICES
+from perimeter_flux.sample_data import ACAPULCO_EDDY_VERTICES
 
 def _build_aligned_acapulco_inputs(
     n_hours: int,
@@ -414,7 +414,7 @@ class TestSummarizeWindow:
         assert math.isnan(float(strict["mean_storage_adjusted_cdrr_tco2_hr"][3]))
 
     def test_invalid_window_duration_raises_value_error(self):
-        base = datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
+        # base = datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
         empty = pl.DataFrame(
             schema={
                 "period_start": pl.Datetime("us", "UTC"),

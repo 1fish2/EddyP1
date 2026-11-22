@@ -17,7 +17,7 @@ from perimeter_flux.geodesy import (
     project_latlon_to_local_en,
 )
 
-from tests.perimeter_flux.sample_data import ACAPULCO_EDDY_VERTICES
+from perimeter_flux.sample_data import ACAPULCO_EDDY_VERTICES
 
 WGS84_SEMI_MINOR_M = WGS84_SEMI_MAJOR_M * (1.0 - WGS84_FLATTENING)
 

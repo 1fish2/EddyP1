@@ -21,7 +21,7 @@ from perimeter_flux.flux import (
     effective_mblh_m,
 )
 from perimeter_flux.geodesy import project_latlon_to_local_en
-from tests.perimeter_flux.sample_data import ACAPULCO_EDDY_VERTICES
+from perimeter_flux.sample_data import ACAPULCO_EDDY_VERTICES
 
 def _make_acapulco_observations(
     *,
