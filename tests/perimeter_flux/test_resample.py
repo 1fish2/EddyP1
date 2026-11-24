@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import numpy as np
 import polars as pl
 import pytest
 
 from perimeter_flux.config import (
-    ACPFConfig,
-    InterpolationMethod,
     WGS84_E2,
     WGS84_SEMI_MAJOR_M,
+    ACPFConfig,
+    InterpolationMethod,
 )
 from perimeter_flux.resample import (
     build_interpolator,
@@ -24,7 +24,7 @@ from perimeter_flux.resample import (
 
 
 def _utc_hours(count: int, start: datetime | None = None) -> pl.Series:
-    base = start or datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
+    base = start or datetime(2026, 6, 1, 0, 0, tzinfo=UTC)
     return pl.Series(
         "period_start",
         [base + timedelta(hours=h) for h in range(count)],
@@ -154,7 +154,7 @@ class TestResampleASVTelemetry:
     """Verify Stage 1 ASV resampling: wind oscillation, constancy, IDL ECEF, drift, and outages."""
 
     def test_symmetric_sailboat_wind_oscillation_cancels_and_lowers_constancy(self):
-        base = datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
+        base = datetime(2026, 6, 1, 0, 0, tzinfo=UTC)
         # 5-minute samples across 2 hours (25 points: 0..120 min)
         # Exact 12-sample (1-hour) symmetric triangle/square-like oscillation on v_wind around mean (6.0, 0.0)
         n_steps = 24
@@ -190,7 +190,7 @@ class TestResampleASVTelemetry:
         np.testing.assert_allclose(aligned["wind_constancy"].to_numpy(), [0.75, 0.75], atol=1e-12)
 
     def test_wind_constancy_edge_cases_steady_zero_and_reversal(self):
-        base = datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
+        base = datetime(2026, 6, 1, 0, 0, tzinfo=UTC)
         # Three ASVs over 1 hour [0, 60 min]:
         # Oshen1: perfectly steady (5, 0) -> constancy = 1.0
         # Oshen2: calm zero wind (0, 0) -> constancy = 1.0 (epsilon guard)
@@ -225,7 +225,7 @@ class TestResampleASVTelemetry:
         assert math.isclose(by_asv["Oshen3"], 0.0, abs_tol=1e-12)
 
     def test_ecef_position_interpolation_across_international_date_line(self):
-        base = datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
+        base = datetime(2026, 6, 1, 0, 0, tzinfo=UTC)
         # ASV sails steadily East across +/-180 deg from +179.6 -> +180.0 -> -179.6 over 2 hours
         times = [base, base + timedelta(hours=1), base + timedelta(hours=2)]
         lons = [179.6, 180.0, -179.6]
@@ -252,7 +252,7 @@ class TestResampleASVTelemetry:
         assert math.isclose(lon_out[1], -179.8, abs_tol=1e-4)
 
     def test_asv_drift_speed_accuracy_along_meridian(self):
-        base = datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
+        base = datetime(2026, 6, 1, 0, 0, tzinfo=UTC)
         lat0_deg = 13.4
         lat0_rad = math.radians(lat0_deg)
         # Exact WGS 84 meridional radius M(phi)
@@ -283,7 +283,7 @@ class TestResampleASVTelemetry:
         np.testing.assert_allclose(drift[1:], [true_speed_m_s, true_speed_m_s], rtol=1e-4)
 
     def test_single_co2_sensor_kept_and_dual_outage_omitted(self):
-        base = datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
+        base = datetime(2026, 6, 1, 0, 0, tzinfo=UTC)
         times = [base, base + timedelta(hours=1), base + timedelta(hours=2)]
 
         # Oshen1: co2_2 is null throughout -> kept with co2_1 finite, co2_2 NaN
@@ -325,7 +325,7 @@ class TestResampleMetSeries:
     """Verify meteorological time series direct match and interval-integral alignment."""
 
     def test_direct_match_when_already_on_period_grid(self):
-        base = datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
+        base = datetime(2026, 6, 1, 0, 0, tzinfo=UTC)
         periods = _utc_hours(3, base)
         met_df = pl.DataFrame(
             {
@@ -347,7 +347,7 @@ class TestResampleMetSeries:
         np.testing.assert_allclose(aligned["v_wind_ext"].to_numpy(), [-1.0, -2.0, -3.0])
 
     def test_subhourly_and_coarse_met_resampled_via_interval_integral(self):
-        base = datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
+        base = datetime(2026, 6, 1, 0, 0, tzinfo=UTC)
         # 3-hourly linear ramp: mblh(t_hr) = 800 + 100 * t_hr over [0, 6 hr]
         met_df = pl.DataFrame(
             {
@@ -368,7 +368,7 @@ class TestResampleMetSeries:
         assert np.all(np.isnan(aligned_tight["mblh_m"].to_numpy()))
 
     def test_subhourly_met_resampled_via_interval_integral(self):
-        base = datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
+        base = datetime(2026, 6, 1, 0, 0, tzinfo=UTC)
         # 15-minute linear ramp over [0, 2 hr]: mblh(t_hr) = 900 + 60 * t_hr
         times = [base + timedelta(minutes=15 * i) for i in range(9)]
         mblh = [900.0 + 15.0 * i for i in range(9)]
@@ -385,7 +385,7 @@ class TestResampleMetSeries:
         np.testing.assert_allclose(aligned["t_air_k"].to_numpy(), [293.5, 294.5], atol=1e-12)
 
     def test_missing_required_column_raises_value_error(self):
-        base = datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
+        base = datetime(2026, 6, 1, 0, 0, tzinfo=UTC)
         bad_met = pl.DataFrame({"timestamp": _utc_hours(2, base), "t_air_k": [293.0, 294.0]})
         with pytest.raises(ValueError, match="mblh_m"):
             resample_met_series(bad_met, _utc_hours(2, base), ACPFConfig())

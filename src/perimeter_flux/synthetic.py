@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import numpy as np
 import polars as pl
@@ -20,8 +20,8 @@ from scipy.spatial import ConvexHull
 from perimeter_flux.config import (
     DEFAULT_P_ATM_PA,
     DEFAULT_T_AIR_K,
-    ErrorBar,
     KG_PER_S_TO_T_PER_HR,
+    ErrorBar,
 )
 from perimeter_flux.flux import co2_mass_per_ppm_kg_m3, effective_mblh_m
 from perimeter_flux.geodesy import (
@@ -44,25 +44,29 @@ SCENARIO_NAMES: tuple[str, ...] = (
     "combined_showcase",
 )
 
-_DEFAULT_START = datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
+_DEFAULT_START = datetime(2026, 6, 1, 0, 0, tzinfo=UTC)
 
-_ASV_SCHEMA: dict[str, pl.DataType] = {
-    "asv_id": pl.String,
-    "timestamp": pl.Datetime("us", "UTC"),
-    "latitude": pl.Float64,
-    "longitude": pl.Float64,
-    "co2_1": pl.Float64,
-    "co2_2": pl.Float64,
-    "u_wind": pl.Float64,
-    "v_wind": pl.Float64,
-}
+_ASV_SCHEMA = pl.Schema(
+    {
+        "asv_id": pl.String,
+        "timestamp": pl.Datetime("us", "UTC"),
+        "latitude": pl.Float64,
+        "longitude": pl.Float64,
+        "co2_1": pl.Float64,
+        "co2_2": pl.Float64,
+        "u_wind": pl.Float64,
+        "v_wind": pl.Float64,
+    }
+)
 
-_MET_SCHEMA: dict[str, pl.DataType] = {
-    "timestamp": pl.Datetime("us", "UTC"),
-    "mblh_m": pl.Float64,
-    "t_air_k": pl.Float64,
-    "p_atm_pa": pl.Float64,
-}
+_MET_SCHEMA = pl.Schema(
+    {
+        "timestamp": pl.Datetime("us", "UTC"),
+        "mblh_m": pl.Float64,
+        "t_air_k": pl.Float64,
+        "p_atm_pa": pl.Float64,
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,7 +124,7 @@ def _analytical_linear_cdrr(
 
 
 def _regular_times_sec(n_hours: int, step_minutes: float = 15.0) -> NDArray[np.float64]:
-    n_steps = int(round(n_hours * 60.0 / step_minutes))
+    n_steps = round(n_hours * 60.0 / step_minutes)
     return np.linspace(0.0, n_hours * 3600.0, n_steps + 1, dtype=np.float64)
 
 
@@ -665,5 +669,5 @@ def generate_scenario(
     if builder is None:
         valid = ", ".join(SCENARIO_NAMES)
         raise ValueError(f"Unknown scenario {name!r}; expected one of: {valid}.")
-    t0 = _DEFAULT_START if start_time is None else start_time.astimezone(timezone.utc)
+    t0 = _DEFAULT_START if start_time is None else start_time.astimezone(UTC)
     return builder(t0, seed, vertices)

@@ -7,11 +7,11 @@ import math
 import pytest
 
 from perimeter_flux.config import (
-    ACPFConfig,
     DEFAULT_P_ATM_PA,
     DEFAULT_T_AIR_K,
-    ErrorBar,
     KG_PER_S_TO_T_PER_HR,
+    ACPFConfig,
+    ErrorBar,
     WindMode,
 )
 from perimeter_flux.flux import (
@@ -22,6 +22,7 @@ from perimeter_flux.flux import (
 )
 from perimeter_flux.geodesy import project_latlon_to_local_en
 from perimeter_flux.sample_data import ACAPULCO_EDDY_VERTICES
+
 
 def _make_acapulco_observations(
     *,

@@ -75,7 +75,7 @@ flowchart LR
 | $\mathbf{w}_{\text{asv},i}$ | `(asv_drift_u, asv_drift_v)` | $\text{m}\,\text{s}^{-1}$ | Horizontal ground/drift velocity of ASV $i$ between consecutive periods (moving-boundary diagnostic). |
 | $s_i$ | `wind_speed` | $\text{m}\,\text{s}^{-1}$ | Scalar wind speed $\lVert\mathbf{w}_i\rVert_2$ at ASV $i$. |
 | $s_{\text{poly},k}$ | `mean_wind_speed_m_s` | $\text{m}\,\text{s}^{-1}$ | Magnitude of the polygon-mean wind vector $\lVert\bar{\mathbf{w}}_k\rVert_2$ in period $k$. |
-| $\theta_{w,k}$ | `wind_flow_rad` | $\text{rad}$ | Wind flow heading angle $\operatorname{atan2}(\bar{v}_k, \bar{u}_k) \in (-\pi, \pi]$ (CCW from East). |
+| $\theta_{w,k}$ | `wind_flow_rad` | $\text{rad}$ | Wind flow heading angle $\mathrm{atan2}(\bar{v}_k, \bar{u}_k) \in (-\pi, \pi]$ (CCW from East). |
 | $r_{\text{const},i}$ | `wind_constancy` | $1$ | Intra-period wind vector constancy $\lVert\bar{\mathbf{w}}_{i,k}\rVert_2 / \overline{\lVert\mathbf{w}_i\rVert}_{k} \in [0, 1]$ (1 = perfectly steady direction; 0 = complete reversal/turning cancellation). |
 | $D_w$ | `wind_divergence_m2_s` | $\text{m}^2\,\text{s}^{-1}$ | Raw discrete horizontal wind divergence around the hull using local per-ASV edge winds. |
 | $c_{i,1},\, c_{i,2}$ | `co2_1`, `co2_2` | $\text{ppm}$ | Period-averaged dry-air $\text{CO}_2$ mole fractions (​$\mu\text{mol}\,\text{mol}^{-1}$) from sensors 1 and 2 on ASV $i$. |
@@ -136,7 +136,7 @@ Interpolating ASV positions in 3D ECEF (Stage 1) and computing the centroid in 3
 
 ### 3.2 Inverse ECEF to Geodetic Origin $(\phi_0, \lambda_0)$
 
-Given $N_{\text{tot}}$ ASV ECEF vectors $\{\mathbf{X}_i\}$, form the mean ECEF vector $\bar{\mathbf{X}} = \frac{1}{N_{\text{tot}}}\sum_i \mathbf{X}_i$ and convert it to reference geodetic coordinates $(\phi_0, \lambda_0)$ using Bowring's exact closed-form / iterative ellipsoidal projection (2 Newton-Raphson iterations from $\phi^{(0)} = \operatorname{atan2}(\bar{Z},\, (1 - e_{\text{wgs}}^2)\sqrt{\bar{X}^2 + \bar{Y}^2})$ converge to $< 10^{-15}\text{ rad}$), and project the origin onto the sea-level ellipsoid $\mathbf{X}_0 = \mathbf{X}(\phi_0, \lambda_0)$.
+Given $N_{\text{tot}}$ ASV ECEF vectors $\{\mathbf{X}_i\}$, form the mean ECEF vector $\bar{\mathbf{X}} = \frac{1}{N_{\text{tot}}}\sum_i \mathbf{X}_i$ and convert it to reference geodetic coordinates $(\phi_0, \lambda_0)$ using Bowring's exact closed-form / iterative ellipsoidal projection (2 Newton-Raphson iterations from $\phi^{(0)} = \mathrm{atan2}(\bar{Z},\, (1 - e_{\text{wgs}}^2)\sqrt{\bar{X}^2 + \bar{Y}^2})$ converge to $< 10^{-15}\text{ rad}$), and project the origin onto the sea-level ellipsoid $\mathbf{X}_0 = \mathbf{X}(\phi_0, \lambda_0)$.
 
 ### 3.3 ECEF to Local East-North-Up (ENU) Tangent Plane
 
@@ -213,7 +213,7 @@ Given $N_{\text{tot}}$ valid ASVs projected to local EN coordinates $\{\mathbf{p
    - If $N_{\text{tot}} < 2$ or $H_{\text{MBL}} \le 0$ or $H_{\text{MBL}}$ is NaN: return `NaN` flux with `ErrorBar.INSUFFICIENT_ASVS`.
    - If $N_{\text{tot}} = 2$: return `NaN` flux with `ErrorBar.TWO_ASV_EXTRAPOLATED` (​$N = 2$ extrapolation deferred).
 2. **Degeneracy check** (for $N_{\text{tot}} \ge 3$):
-   - Compute centered points $\tilde{\mathbf{P}} = \mathbf{P} - \bar{\mathbf{p}}$. If $\operatorname{rank}(\tilde{\mathbf{P}}) < 2$ or `scipy.spatial.ConvexHull(P)` raises `QhullError` (never use `"QJ"` random joggle), classify as `ErrorBar.TWO_ASV_EXTRAPOLATED` with `NaN` flux.
+   - Compute centered points $\tilde{\mathbf{P}} = \mathbf{P} - \bar{\mathbf{p}}$. If $\mathrm{rank}(\tilde{\mathbf{P}}) < 2$ or `scipy.spatial.ConvexHull(P)` raises `QhullError` (never use `"QJ"` random joggle), classify as `ErrorBar.TWO_ASV_EXTRAPOLATED` with `NaN` flux.
    - Extract `hull = ConvexHull(P)`:
      - $A_{\text{hull}} = \text{hull.volume}$ (​$\text{m}^2$)
      - $L_{\text{perim}} = \text{hull.area}$ (​$\text{m}$)
@@ -321,14 +321,14 @@ Each period receives a single ordered `ErrorBar` category (`StrEnum` backed by P
 
 Inter-period wind direction change uses circular wrap-safe angle difference:
 
-$$\Delta \theta_{w,k} = \operatorname{atan2}\!\left(\sin(\theta_{w,k} - \theta_{w,k-1}),\, \cos(\theta_{w,k} - \theta_{w,k-1})\right) \in (-\pi, \pi]$$
+$$\Delta \theta_{w,k} = \mathrm{atan2}\!\left(\sin(\theta_{w,k} - \theta_{w,k-1}),\, \cos(\theta_{w,k} - \theta_{w,k-1})\right) \in (-\pi, \pi]$$
 
 ---
 
 ## 7. Known Simplifications & Deferred Small Effects
 
 Tracked explicitly for future phases (aligning with [README.md](../README.md)):
-1. **​$N = 2$ baseline extrapolation**: Reserved as `ErrorBar.TWO_ASV_EXTRAPOLATED`; requires eddy circle diameter / cross-wind width assumption and minimum wind-to-chord alignment cutoff.
+1. $N = 2$ **baseline extrapolation**: Reserved as `ErrorBar.TWO_ASV_EXTRAPOLATED`; requires eddy circle diameter / cross-wind width assumption and minimum wind-to-chord alignment cutoff.
 2. **Water-vapor dilution (WPL / humidity correction)**: Currently assumes dry-air mole fraction $x_{\text{CO}_2}$ and dry-air column density; wet-air adjustment $(1 - e_v / P_{\text{atm}})$ is ~1–3% in warm marine boundary layers.
 3. **Top-of-MBL entrainment flux** (​$F_{\text{top}} \propto \frac{dH_{\text{MBL}}}{dt}(c_{\text{free}} - \bar{c}_{\text{box}})$): Currently flagged via `unstable_wind_or_mblh` when $H_{\text{MBL}}$ changes rapidly rather than parameterized.
 4. **Moving-boundary Reynolds velocity subtraction** (​$(\mathbf{w} - \mathbf{w}_{\text{asv}})\cdot \hat{\mathbf{n}}_e$): Currently tracked as a diagnostic (`max_asv_drift_speed_m_s`) until station-keeping vs. current-drifting ASV trajectories are finalized.

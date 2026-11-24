@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import altair as alt
@@ -20,7 +20,7 @@ from perimeter_flux.charts import (
     build_storage_cancellation_chart,
     compute_kpis,
 )
-from perimeter_flux.config import ACPFConfig, ERROR_BAR_DTYPE, ErrorBar
+from perimeter_flux.config import ACPFConfig, ErrorBar
 from perimeter_flux.pipeline import compute_acpf, summarize_window
 from perimeter_flux.sample_data import IDL_EQUATOR_EDDY_VERTICES
 from perimeter_flux.synthetic import SCENARIO_NAMES, generate_scenario
@@ -125,7 +125,7 @@ class TestAltairChartBuildersAcrossScenarios:
                 empty_res.edges,
                 empty_res.aligned_asvs,
                 empty_res.hourly,
-                selected_period=datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc),
+                selected_period=datetime(2026, 6, 1, 0, 0, tzinfo=UTC),
             )
         )
         _assert_valid_vegalite_json(build_storage_cancellation_chart(empty_res.hourly, empty_win))
@@ -148,7 +148,9 @@ class TestSummaryTablesAndNotebookIntegrity:
 
         kpis = compute_kpis(res.hourly, expected_cdrr_tco2_hr=None)
         assert kpis["n_periods"] == res.hourly.height
+        assert kpis["n_stable"] is not None
         assert kpis["n_stable"] > 0
+        assert kpis["mean_stable_lateral_cdrr"] is not None
         assert math.isfinite(kpis["mean_stable_lateral_cdrr"])
 
     def test_error_bar_domain_matches_enum_order(self):
@@ -169,10 +171,13 @@ class TestSummaryTablesAndNotebookIntegrity:
                     if isinstance(enc, dict):
                         for ch_name in ("color", "strokeDash", "shape", "fill"):
                             ch = enc.get(ch_name)
-                            if isinstance(ch, dict) and "field" in ch:
-                                # Vega-Lite creates a legend unless legend is explicitly None/False
-                                if ch.get("legend", True) is not None and ch.get("legend", True) is not False:
-                                    fields.append(str(ch["field"]))
+                            if (
+                                isinstance(ch, dict)
+                                and "field" in ch
+                                and ch.get("legend", True) is not None
+                                and ch.get("legend", True) is not False
+                            ):
+                                fields.append(str(ch["field"]))
                     for v in node.values():
                         _walk(v)
                 elif isinstance(node, list):
@@ -193,7 +198,7 @@ class TestSummaryTablesAndNotebookIntegrity:
         assert len(co2_fields) == len(set(co2_fields)), f"Duplicate legends: {co2_fields}"
 
     def test_marimo_notebook_exists_and_is_valid_app(self):
-        nb_path = Path(__file__).parent.parent.parent / "acpf_exploration.py"
+        nb_path = Path(__file__).parent.parent.parent / "notebooks" / "acpf_exploration.py"
         assert nb_path.exists()
         source = nb_path.read_text(encoding="utf-8")
         assert "marimo.App" in source

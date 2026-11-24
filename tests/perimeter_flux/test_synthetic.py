@@ -108,7 +108,7 @@ class TestSyntheticPhysicsAndTargets:
         res = compute_acpf(asv_df, met_df)
         assert res.hourly.height == meta.n_hours
         # Bobbing/turning noise lowers intra-period constancy below 1.0
-        assert float(res.hourly["wind_constancy_min"].min()) < 0.98  # type: ignore[arg-type]
+        assert float(res.hourly["wind_constancy_min"].to_numpy().min()) < 0.98
         # Orbital eddy swirl produces measurable positive drift speed (~0.5 m/s)
         drifts = res.hourly["max_asv_drift_speed_m_s"].to_numpy()
         valid_drifts = drifts[np.isfinite(drifts)]

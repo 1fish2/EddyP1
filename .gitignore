@@ -9,5 +9,12 @@ build/
 .pytest_cache/
 .mypy_cache/
 data/
-/.idea/
 /tmp/
+
+/.idea/*
+!.idea/inspectionProfiles/
+.idea/inspectionProfiles/*
+!.idea/inspectionProfiles/Project_Default.xml
+!.idea/dictionaries/
+!.idea/dictionaries/*
+!.idea/dictionaries/project.xml

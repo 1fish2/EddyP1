@@ -8,19 +8,29 @@ method described in:
 
 * [Measuring large-scale mCDR using a novel Atmospheric CO₂ Perimeter Flux (ACPF) method](https://www.frontiersin.org/journals/climate/articles/10.3389/fclim.2026.1941538/full#fig1)
 
+## Initial Components
 
-## Initial components
-
-* Download initial data from F4CR's satellite data digestion pipeline. More to do.
-* Load it into a Polars dataframe.
-* Start to explore it with a Marimo interactive notebook.
+* Core implementation of the ACPF pipeline. See [ACPF math](doc/acpf_math.md) and [ACPF implementation plan](doc/acpf_implementation_plan.md).
+* Marimo notebooks to visualize wind flow and ACPF analysis.
 
 ![a wind flow direction visualization](doc/visualization.png "initial wind flow direction visualization")
 
+## Instructions
+
+* Run `uv sync` in the project directory to create or update a Python virtual environment in the `.venv` folder and
+  install/update all the library and tool dependencies listed in `pyproject.toml`.  
+  (`uv sync --no-dev` for a production-only environment without dev dependencies.)
+* Run all the unit tests: `uv run pytest`, or `uv run pytest -v` with verbose output.
+* Run the `ty` type checker: `uv run ty check`, or  `uv run ty check src` to check just the `src/` directory.
+* Run the `ruff` lint checker: `uv run ruff check .`, or `uv run ruff check --fix .` to auto-fix safe issues,
+  `uv run ruff format --check .` to check formatting without modifying files, or `uv run ruff format .` to
+  check and fix formatting.
+* Run `uv run marimo check notebooks` to check the notebooks.
+* Marimo notebooks can run in PyCharm, VS Code, and Antigravity IDE; best done with the Marimo plugin.
 
 ## Components TODO
 
-* Design the algorithm to approximate CO₂ flux measurements over the eddy circle with a variable number of CO₂-measuring ASVs. The plan is for 6 ASVs around the eddy circumference. The bare minimum is two ASVs, approximately across the eddy from each other. There's no useful data when the wind is perpendicular to the vector between two ASVs.
+* xxx.
 * Figure out the algorithm to fit a circle to an eddy current in the ocean current data.
 * Design visualizations to make it clear how this method measures CO₂ removal rate.
 * Compare data from 2 sensors per buoy to look for sensor measurement problems. Experiment with how to handle discrepancies.

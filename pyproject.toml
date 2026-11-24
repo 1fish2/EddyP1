@@ -14,8 +14,20 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    "ruff>=0.17.6",
+    "ty>=0.0.109",
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"notebooks/*.py" = ["B018", "PLR1711"]
+
+# Altair 6's @use_signature decorator currently leaves an unresolved generic R@__call__ in ty.
+[[tool.ty.overrides]]
+include = ["src/perimeter_flux/charts.py"]
+
+[tool.ty.overrides.rules]
+missing-attribute = "ignore"

@@ -1,3 +1,4 @@
+# noinspection GrazieStyle
 """Stage 1: Asynchronous ASV telemetry and meteorological temporal alignment.
 
 Mirrors Section 4 of ``doc/acpf_math.md``:
@@ -25,6 +26,7 @@ Guards & Diagnostics (Sections 4.2 - 4.3)
 from __future__ import annotations
 
 import math
+import typing
 
 import numpy as np
 import polars as pl
@@ -32,12 +34,12 @@ from numpy.typing import ArrayLike, NDArray
 from scipy.interpolate import (
     Akima1DInterpolator,
     BSpline,
-    PPoly,
     PchipInterpolator,
+    PPoly,
     make_interp_spline,
 )
 
-from perimeter_flux.config import ACPFConfig, InterpolationMethod, MIN_WIND_SPEED_EPS
+from perimeter_flux.config import MIN_WIND_SPEED_EPS, ACPFConfig, InterpolationMethod
 from perimeter_flux.geodesy import ecef_to_latlon, latlon_to_ecef
 
 _REQUIRED_ASV_COLUMNS: tuple[str, ...] = (
@@ -56,28 +58,33 @@ _OPTIONAL_MET_COLUMNS: tuple[str, ...] = (
     "u_wind_ext",
     "v_wind_ext",
 )
-_ALIGNED_ASV_SCHEMA: dict[str, pl.DataType] = {
-    "period_start": pl.Datetime("us", "UTC"),
-    "asv_id": pl.String,
-    "ecef_x_m": pl.Float64,
-    "ecef_y_m": pl.Float64,
-    "ecef_z_m": pl.Float64,
-    "latitude": pl.Float64,
-    "longitude": pl.Float64,
-    "u_wind": pl.Float64,
-    "v_wind": pl.Float64,
-    "wind_constancy": pl.Float64,
-    "co2_1": pl.Float64,
-    "co2_2": pl.Float64,
-    "asv_drift_speed_m_s": pl.Float64,
-}
+_DEFAULT_CONFIG = ACPFConfig()
+
+_ALIGNED_ASV_SCHEMA = pl.Schema(
+    {
+        "period_start": pl.Datetime("us", "UTC"),
+        "asv_id": pl.String,
+        "ecef_x_m": pl.Float64,
+        "ecef_y_m": pl.Float64,
+        "ecef_z_m": pl.Float64,
+        "latitude": pl.Float64,
+        "longitude": pl.Float64,
+        "u_wind": pl.Float64,
+        "v_wind": pl.Float64,
+        "wind_constancy": pl.Float64,
+        "co2_1": pl.Float64,
+        "co2_2": pl.Float64,
+        "asv_drift_speed_m_s": pl.Float64,
+    }
+)
 
 
 def _to_utc_us_series(series: pl.Series, name: str | None = None) -> pl.Series:
     """Normalize a Polars Datetime series to microsecond UTC precision."""
-    if not isinstance(series.dtype, pl.Datetime):
-        raise TypeError(f"Expected a Datetime series, got {series.dtype}.")
-    if series.dtype.time_zone is None:
+    dtype = series.dtype
+    if not isinstance(dtype, pl.Datetime):
+        raise TypeError(f"Expected a Datetime series, got {dtype}.")
+    if dtype.time_zone is None:
         out = series.cast(pl.Datetime("us")).dt.replace_time_zone("UTC")
     else:
         out = series.dt.convert_time_zone("UTC").cast(pl.Datetime("us", "UTC"))
@@ -94,13 +101,14 @@ def build_interpolator(
     values: ArrayLike,
     method: InterpolationMethod,
 ) -> BSpline | PPoly:
+    # noinspection SpellCheckingInspection
     """Build a SciPy spline/piecewise-polynomial interpolant supporting ``.integrate(a, b)``.
 
-    - ``LINEAR``: ``make_interp_spline(t_sec, values, k=1)``
-    - ``PCHIP``: ``PchipInterpolator(t_sec, values, extrapolate=False)``
-    - ``AKIMA``: ``Akima1DInterpolator(t_sec, values, extrapolate=False)`` for >= 5
-      points, falling back to ``PchipInterpolator`` (3-4 points) or linear (2 points).
-    """
+        - ``LINEAR``: ``make_interp_spline(t_sec, values, k=1)``
+        - ``PCHIP``: ``PchipInterpolator(t_sec, values, extrapolate=False)``
+        - ``AKIMA``: ``Akima1DInterpolator(t_sec, values, extrapolate=False)`` for >= 5
+          points, falling back to ``PchipInterpolator`` (3-4 points) or linear (2 points).
+        """
     t = np.asarray(t_sec, dtype=np.float64)
     y = np.asarray(values, dtype=np.float64)
     if t.ndim != 1 or y.ndim != 1 or t.shape != y.shape:
@@ -125,7 +133,8 @@ def build_interpolator(
             return PchipInterpolator(t, y, extrapolate=False)
         return make_interp_spline(t, y, k=1)
 
-    raise TypeError(f"Unsupported interpolation method: {method!r}.")
+    # noinspection unreachable-code
+    typing.assert_never(method)
 
 
 def interval_average_channel(
@@ -185,7 +194,7 @@ def interval_average_channel(
 
     # Shift time origin to t_unique[0] for spline numerical conditioning
     t0 = float(t_unique[0])
-    t_rel = t_unique - t0
+    t_rel: NDArray[np.float64] = t_unique - t0
     a_rel = p_starts - t0
     b_rel = a_rel + dt_sec
 
@@ -218,7 +227,7 @@ def interval_average_channel(
 def resample_asv_telemetry(
     asv_telemetry: pl.DataFrame,
     period_starts: pl.Series,
-    config: ACPFConfig = ACPFConfig(),
+    config: ACPFConfig = _DEFAULT_CONFIG,
 ) -> pl.DataFrame:
     """Align asynchronous per-ASV telemetry onto the discrete ``period_starts`` grid.
 
@@ -241,7 +250,7 @@ def resample_asv_telemetry(
         raise ValueError("period_starts must be strictly increasing.")
 
     dt_sec = config.time_interval.total_seconds()
-    dt_us = int(round(dt_sec * 1_000_000))
+    dt_us = round(dt_sec * 1_000_000)
     max_gap_sec = config.max_interp_gap.total_seconds()
     method = config.interpolation_method
 
@@ -369,7 +378,7 @@ def resample_asv_telemetry(
 def resample_met_series(
     met_df: pl.DataFrame,
     period_starts: pl.Series,
-    config: ACPFConfig = ACPFConfig(),
+    config: ACPFConfig = _DEFAULT_CONFIG,
 ) -> pl.DataFrame:
     """Align meteorological series (``mblh_m`` and optional met columns) onto ``period_starts``.
 
@@ -384,10 +393,12 @@ def resample_met_series(
 
     periods_utc = _to_utc_us_series(period_starts, name="period_start")
     value_cols = ["mblh_m", *[c for c in _OPTIONAL_MET_COLUMNS if c in met_df.columns]]
-    out_schema: dict[str, pl.DataType] = {
-        "period_start": pl.Datetime("us", "UTC"),
-        **{c: pl.Float64 for c in value_cols},
-    }
+    out_schema = pl.Schema(
+        {
+            "period_start": pl.Datetime("us", "UTC"),
+            **{c: pl.Float64 for c in value_cols},
+        }
+    )
 
     n_periods = periods_utc.len()
     if n_periods == 0:
@@ -405,7 +416,7 @@ def resample_met_series(
         )
 
     dt_sec = config.time_interval.total_seconds()
-    dt_us = int(round(dt_sec * 1_000_000))
+    dt_us = round(dt_sec * 1_000_000)
     max_gap_sec = config.max_interp_gap.total_seconds()
     method = config.interpolation_method
 

@@ -38,15 +38,15 @@ import numpy as np
 from scipy.spatial import ConvexHull, QhullError
 
 from perimeter_flux.config import (
-    ACPFConfig,
     DEFAULT_P_ATM_PA,
     DEFAULT_T_AIR_K,
     DRY_AIR_GAS_CONSTANT,
-    ErrorBar,
     KG_PER_S_TO_T_PER_HR,
     MOLAR_MASS_CO2_KG,
     STANDARD_GRAVITY,
     UNIVERSAL_GAS_CONSTANT,
+    ACPFConfig,
+    ErrorBar,
     WindMode,
 )
 from perimeter_flux.geodesy import project_latlon_to_local_en
@@ -191,11 +191,14 @@ def _resolve_met_param(name: str, value: float | None, default: float) -> float:
     return fval
 
 
+_DEFAULT_CONFIG = ACPFConfig()
+
+
 def compute_period_flux(
     observations: Sequence[ASVObservation],
     mblh_m: float,
     *,
-    config: ACPFConfig = ACPFConfig(),
+    config: ACPFConfig = _DEFAULT_CONFIG,
     t_air_k: float | None = None,
     p_atm_pa: float | None = None,
     external_wind: tuple[float, float] | None = None,

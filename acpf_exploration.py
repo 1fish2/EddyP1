@@ -1,7 +1,11 @@
 import marimo
 
 __generated_with = "0.25.2"
-app = marimo.App(width="medium", sql_output="native")
+app = marimo.App(
+    width="medium",
+    app_title="ACPF Explorer",
+    sql_output="native",
+)
 
 
 @app.cell

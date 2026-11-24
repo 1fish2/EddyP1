@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import numpy as np
 import polars as pl
@@ -13,8 +13,8 @@ from perimeter_flux.config import (
     DEFAULT_P_ATM_PA,
     DEFAULT_T_AIR_K,
     ERROR_BAR_DTYPE,
-    ErrorBar,
     KG_PER_S_TO_T_PER_HR,
+    ErrorBar,
 )
 from perimeter_flux.flux import co2_mass_per_ppm_kg_m3, effective_mblh_m
 from perimeter_flux.geodesy import project_latlon_to_local_en
@@ -25,6 +25,7 @@ from perimeter_flux.pipeline import (
     summarize_window,
 )
 from perimeter_flux.sample_data import ACAPULCO_EDDY_VERTICES
+
 
 def _build_aligned_acapulco_inputs(
     n_hours: int,
@@ -37,7 +38,7 @@ def _build_aligned_acapulco_inputs(
     active_asv_counts: list[int] | None = None,
 ) -> tuple[pl.DataFrame, pl.DataFrame]:
     """Helper producing pre-aligned Stage 1 DataFrames on ACAPULCO_EDDY_VERTICES."""
-    base = start or datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
+    base = start or datetime(2026, 6, 1, 0, 0, tzinfo=UTC)
     lats = [p[0] for p in ACAPULCO_EDDY_VERTICES]
     lons = [p[1] for p in ACAPULCO_EDDY_VERTICES]
     xy_m, _, _ = project_latlon_to_local_en(lats, lons)
@@ -100,7 +101,7 @@ class TestEndToEndAsyncPipeline:
     """Verify full Stage 1 -> Stage 2 -> Stage 3 async pipeline and output schemas."""
 
     def test_async_steady_drawdown_exact_flux_and_schemas(self):
-        base = datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
+        base = datetime(2026, 6, 1, 0, 0, tzinfo=UTC)
         lats = [p[0] for p in ACAPULCO_EDDY_VERTICES]
         lons = [p[1] for p in ACAPULCO_EDDY_VERTICES]
         xy_m, _, _ = project_latlon_to_local_en(lats, lons)
@@ -357,7 +358,7 @@ class TestSummarizeWindow:
     """Verify multi-period rolling tau_win summaries with ErrorBar severity filtering."""
 
     def test_rolling_window_filtering_and_worst_error_bar(self):
-        base = datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
+        base = datetime(2026, 6, 1, 0, 0, tzinfo=UTC)
         hourly = pl.DataFrame(
             {
                 "period_start": [base + timedelta(hours=h) for h in range(6)],

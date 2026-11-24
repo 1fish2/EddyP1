@@ -11,9 +11,10 @@ def _():
 
     import altair as alt
     import marimo as mo
+    import numpy as np
     import polars as pl
 
-    return Path, alt, math, mo, pl
+    return Path, alt, math, mo, np, pl
 
 
 @app.cell(hide_code=True)
@@ -24,9 +25,9 @@ def _(mo):
     This notebook explores satellite ocean wind vectors ($u, v$) and computes derived metrics:
     - **Wind Speed**: Vector magnitude $\sqrt{u^2 + v^2}$ in $\text{m/s}$.
     - **Meteorological Wind Direction**: Direction **from which** the wind is blowing, measured in degrees clockwise from true north ($0^\circ = \text{North}$, $90^\circ = \text{East}$, $180^\circ = \text{South}$, $270^\circ = \text{West}$):
-      $$\text{dir}_{\text{from}} = \left(\operatorname{atan2}(-u, -v) \times \frac{180}{\pi}\right) \pmod{360}$$
+      $$\text{dir}_{\text{from}} = \left(\mathrm{atan2}(-u, -v) \times \frac{180}{\pi}\right) \pmod{360}$$
     - **Vector Flow Heading**: Direction **toward which** the air mass is moving:
-      $$\text{dir}_{\text{flow}} = \left(\operatorname{atan2}(u, v) \times \frac{180}{\pi}\right) \pmod{360}$$
+      $$\text{dir}_{\text{flow}} = \left(\mathrm{atan2}(u, v) \times \frac{180}{\pi}\right) \pmod{360}$$
     - **Compass Sectors**: 8-point cardinal bins ($\text{N, NE, E, SE, S, SW, W, NW}$).
     """)
     return
@@ -34,7 +35,7 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(Path, mo, pl):
-    csv_file = Path("data/baja_2020_01_to_04_wind_geo.csv")
+    csv_file = Path(__file__).resolve().parent.parent / "data" / "baja_2020_01_to_04_wind_geo.csv"
 
     if not csv_file.exists():
         mo.output.replace(
@@ -142,13 +143,17 @@ def _(enriched_df, lat_slider, pl, speed_slider):
 
 
 @app.cell(hide_code=True)
-def _(filtered_df, mo):
+def _(filtered_df, mo, np):
+    _ws = filtered_df["wind_speed"].to_numpy()
+    _mean_ws = float(_ws.mean()) if _ws.size > 0 else float("nan")
+    _median_ws = float(np.median(_ws)) if _ws.size > 0 else float("nan")
+    _max_ws = float(_ws.max()) if _ws.size > 0 else float("nan")
     mo.md(f"""
     ### 📊 Filtered Dataset Summary
     - **Matching Observations**: {len(filtered_df):,}
-    - **Mean Wind Speed**: {filtered_df['wind_speed'].mean():.2f} m/s = {filtered_df['wind_speed'].mean()*3.6:.2f} km/h
-    - **Median Wind Speed**: {filtered_df['wind_speed'].median():.2f} m/s = {filtered_df['wind_speed'].median()*3.6:.2f} km/h
-    - **Max Wind Speed**: {filtered_df['wind_speed'].max():.2f} m/s = {filtered_df['wind_speed'].max()*3.6:.2f} km/h
+    - **Mean Wind Speed**: {_mean_ws:.2f} m/s = {_mean_ws * 3.6:.2f} km/h
+    - **Median Wind Speed**: {_median_ws:.2f} m/s = {_median_ws * 3.6:.2f} km/h
+    - **Max Wind Speed**: {_max_ws:.2f} m/s = {_max_ws * 3.6:.2f} km/h
     """)
     return
 

@@ -11,7 +11,6 @@ import polars as pl
 import pytest
 
 from perimeter_flux.config import (
-    ACPFConfig,
     DEFAULT_MAX_CO2_SENSOR_DIFF_PPM,
     DEFAULT_MAX_INTERP_GAP,
     DEFAULT_MAX_MBLH_REL_CHANGE,
@@ -25,8 +24,6 @@ from perimeter_flux.config import (
     DEFAULT_TIME_INTERVAL,
     DRY_AIR_GAS_CONSTANT,
     ERROR_BAR_DTYPE,
-    ErrorBar,
-    InterpolationMethod,
     KG_PER_S_TO_T_PER_HR,
     MIN_WIND_SPEED_EPS,
     MOLAR_MASS_CO2_KG,
@@ -36,6 +33,9 @@ from perimeter_flux.config import (
     WGS84_E2,
     WGS84_FLATTENING,
     WGS84_SEMI_MAJOR_M,
+    ACPFConfig,
+    ErrorBar,
+    InterpolationMethod,
     WindMode,
 )
 
@@ -125,17 +125,17 @@ class TestModeEnums:
 class TestErrorBar:
     """Verify ErrorBar severity ordering in Python and Polars pl.Enum."""
 
-    EXPECTED_ORDER = [
+    EXPECTED_ORDER: tuple[ErrorBar, ...] = (
         ErrorBar.STABLE,
         ErrorBar.UNSTABLE_WIND_OR_MBLH,
         ErrorBar.CO2_SENSOR_DISCREPANCY,
         ErrorBar.TWO_ASV_EXTRAPOLATED,
         ErrorBar.INSUFFICIENT_ASVS,
-    ]
+    )
 
     def test_members_and_string_values(self):
         assert issubclass(ErrorBar, StrEnum)
-        assert list(ErrorBar) == self.EXPECTED_ORDER
+        assert list(ErrorBar) == list(self.EXPECTED_ORDER)
         assert [m.value for m in ErrorBar] == [
             "stable",
             "unstable_wind_or_mblh",
@@ -166,7 +166,7 @@ class TestErrorBar:
             ErrorBar.CO2_SENSOR_DISCREPANCY,
             ErrorBar.UNSTABLE_WIND_OR_MBLH,
         ]
-        assert sorted(shuffled) == self.EXPECTED_ORDER
+        assert sorted(shuffled) == list(self.EXPECTED_ORDER)
         assert min(shuffled) is ErrorBar.STABLE
         assert max(shuffled) is ErrorBar.INSUFFICIENT_ASVS
         assert (
@@ -258,7 +258,9 @@ class TestACPFConfig:
         cfg = ACPFConfig()
         assert not hasattr(cfg, "__dict__")
         with pytest.raises(FrozenInstanceError):
-            cfg.min_hull_area_m2 = 5e5  # type: ignore[misc]
+            # Intentionally mutate a frozen dataclass to raise the exception
+            # noinspection dataclass
+            cfg.min_hull_area_m2 = 5e5  # ty: ignore[invalid-assignment]
 
     def test_valid_custom_boundary_values(self):
         cfg = ACPFConfig(

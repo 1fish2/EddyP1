@@ -31,11 +31,11 @@ import numpy as np
 import polars as pl
 
 from perimeter_flux.config import (
-    ACPFConfig,
     ERROR_BAR_DTYPE,
-    ErrorBar,
     KG_PER_S_TO_T_PER_HR,
     MIN_WIND_SPEED_EPS,
+    ACPFConfig,
+    ErrorBar,
     WindMode,
 )
 from perimeter_flux.flux import (
@@ -46,90 +46,100 @@ from perimeter_flux.flux import (
 )
 from perimeter_flux.resample import resample_asv_telemetry, resample_met_series
 
-_HOURLY_SCHEMA: dict[str, pl.DataType] = {
-    "period_start": pl.Datetime("us", "UTC"),
-    "lateral_cdrr_tco2_hr": pl.Float64,
-    "storage_flux_tco2_hr": pl.Float64,
-    "storage_adjusted_cdrr_tco2_hr": pl.Float64,
-    "lateral_cdrr_tco2_km2_hr": pl.Float64,
-    "storage_adjusted_cdrr_tco2_km2_hr": pl.Float64,
-    "error_bar": ERROR_BAR_DTYPE,
-    "n_asvs_total": pl.Int64,
-    "n_asvs_hull": pl.Int64,
-    "hull_start_asv_id": pl.String,
-    "hull_area_km2": pl.Float64,
-    "hull_perimeter_km": pl.Float64,
-    "hull_compactness": pl.Float64,
-    "mblh_m": pl.Float64,
-    "effective_mblh_m": pl.Float64,
-    "t_air_k": pl.Float64,
-    "p_atm_pa": pl.Float64,
-    "box_mean_co2_ppm": pl.Float64,
-    "co2_ref_ppm": pl.Float64,
-    "mean_wind_u": pl.Float64,
-    "mean_wind_v": pl.Float64,
-    "mean_wind_speed_m_s": pl.Float64,
-    "wind_divergence_m2_s": pl.Float64,
-    "wind_constancy_min": pl.Float64,
-    "wind_dir_delta_deg": pl.Float64,
-    "wind_speed_rel_delta": pl.Float64,
-    "mblh_rel_delta": pl.Float64,
-    "max_co2_sensor_diff_ppm": pl.Float64,
-    "n_co2_flagged_asvs": pl.Int64,
-    "max_asv_drift_speed_m_s": pl.Float64,
-}
+_DEFAULT_CONFIG = ACPFConfig()
 
-_EDGES_SCHEMA: dict[str, pl.DataType] = {
-    "period_start": pl.Datetime("us", "UTC"),
-    "edge_idx": pl.Int64,
-    "start_asv_id": pl.String,
-    "end_asv_id": pl.String,
-    "x1_km": pl.Float64,
-    "y1_km": pl.Float64,
-    "x2_km": pl.Float64,
-    "y2_km": pl.Float64,
-    "mid_x_km": pl.Float64,
-    "mid_y_km": pl.Float64,
-    "normal_x": pl.Float64,
-    "normal_y": pl.Float64,
-    "edge_length_km": pl.Float64,
-    "edge_co2_ppm": pl.Float64,
-    "edge_co2_anomaly_ppm": pl.Float64,
-    "edge_wind_u": pl.Float64,
-    "edge_wind_v": pl.Float64,
-    "wind_dot_normal_m_s": pl.Float64,
-    "edge_outward_flux_tco2_hr": pl.Float64,
-}
+_HOURLY_SCHEMA = pl.Schema(
+    {
+        "period_start": pl.Datetime("us", "UTC"),
+        "lateral_cdrr_tco2_hr": pl.Float64,
+        "storage_flux_tco2_hr": pl.Float64,
+        "storage_adjusted_cdrr_tco2_hr": pl.Float64,
+        "lateral_cdrr_tco2_km2_hr": pl.Float64,
+        "storage_adjusted_cdrr_tco2_km2_hr": pl.Float64,
+        "error_bar": ERROR_BAR_DTYPE,
+        "n_asvs_total": pl.Int64,
+        "n_asvs_hull": pl.Int64,
+        "hull_start_asv_id": pl.String,
+        "hull_area_km2": pl.Float64,
+        "hull_perimeter_km": pl.Float64,
+        "hull_compactness": pl.Float64,
+        "mblh_m": pl.Float64,
+        "effective_mblh_m": pl.Float64,
+        "t_air_k": pl.Float64,
+        "p_atm_pa": pl.Float64,
+        "box_mean_co2_ppm": pl.Float64,
+        "co2_ref_ppm": pl.Float64,
+        "mean_wind_u": pl.Float64,
+        "mean_wind_v": pl.Float64,
+        "mean_wind_speed_m_s": pl.Float64,
+        "wind_divergence_m2_s": pl.Float64,
+        "wind_constancy_min": pl.Float64,
+        "wind_dir_delta_deg": pl.Float64,
+        "wind_speed_rel_delta": pl.Float64,
+        "mblh_rel_delta": pl.Float64,
+        "max_co2_sensor_diff_ppm": pl.Float64,
+        "n_co2_flagged_asvs": pl.Int64,
+        "max_asv_drift_speed_m_s": pl.Float64,
+    }
+)
 
-_ALIGNED_ASVS_SCHEMA: dict[str, pl.DataType] = {
-    "period_start": pl.Datetime("us", "UTC"),
-    "asv_id": pl.String,
-    "latitude": pl.Float64,
-    "longitude": pl.Float64,
-    "x_km": pl.Float64,
-    "y_km": pl.Float64,
-    "on_hull": pl.Boolean,
-    "co2_1": pl.Float64,
-    "co2_2": pl.Float64,
-    "co2_ppm": pl.Float64,
-    "co2_sensor_diff_ppm": pl.Float64,
-    "co2_sensor_flagged": pl.Boolean,
-    "u_wind": pl.Float64,
-    "v_wind": pl.Float64,
-    "wind_constancy": pl.Float64,
-    "asv_drift_speed_m_s": pl.Float64,
-}
+_EDGES_SCHEMA = pl.Schema(
+    {
+        "period_start": pl.Datetime("us", "UTC"),
+        "edge_idx": pl.Int64,
+        "start_asv_id": pl.String,
+        "end_asv_id": pl.String,
+        "x1_km": pl.Float64,
+        "y1_km": pl.Float64,
+        "x2_km": pl.Float64,
+        "y2_km": pl.Float64,
+        "mid_x_km": pl.Float64,
+        "mid_y_km": pl.Float64,
+        "normal_x": pl.Float64,
+        "normal_y": pl.Float64,
+        "edge_length_km": pl.Float64,
+        "edge_co2_ppm": pl.Float64,
+        "edge_co2_anomaly_ppm": pl.Float64,
+        "edge_wind_u": pl.Float64,
+        "edge_wind_v": pl.Float64,
+        "wind_dot_normal_m_s": pl.Float64,
+        "edge_outward_flux_tco2_hr": pl.Float64,
+    }
+)
 
-_WINDOW_SUMMARY_SCHEMA: dict[str, pl.DataType] = {
-    "period_start": pl.Datetime("us", "UTC"),
-    "n_periods_total": pl.Int64,
-    "n_periods_valid": pl.Int64,
-    "mean_lateral_cdrr_tco2_hr": pl.Float64,
-    "mean_storage_flux_tco2_hr": pl.Float64,
-    "mean_storage_adjusted_cdrr_tco2_hr": pl.Float64,
-    "mean_storage_adjusted_cdrr_tco2_km2_hr": pl.Float64,
-    "worst_error_bar": ERROR_BAR_DTYPE,
-}
+_ALIGNED_ASVS_SCHEMA = pl.Schema(
+    {
+        "period_start": pl.Datetime("us", "UTC"),
+        "asv_id": pl.String,
+        "latitude": pl.Float64,
+        "longitude": pl.Float64,
+        "x_km": pl.Float64,
+        "y_km": pl.Float64,
+        "on_hull": pl.Boolean,
+        "co2_1": pl.Float64,
+        "co2_2": pl.Float64,
+        "co2_ppm": pl.Float64,
+        "co2_sensor_diff_ppm": pl.Float64,
+        "co2_sensor_flagged": pl.Boolean,
+        "u_wind": pl.Float64,
+        "v_wind": pl.Float64,
+        "wind_constancy": pl.Float64,
+        "asv_drift_speed_m_s": pl.Float64,
+    }
+)
+
+_WINDOW_SUMMARY_SCHEMA = pl.Schema(
+    {
+        "period_start": pl.Datetime("us", "UTC"),
+        "n_periods_total": pl.Int64,
+        "n_periods_valid": pl.Int64,
+        "mean_lateral_cdrr_tco2_hr": pl.Float64,
+        "mean_storage_flux_tco2_hr": pl.Float64,
+        "mean_storage_adjusted_cdrr_tco2_hr": pl.Float64,
+        "mean_storage_adjusted_cdrr_tco2_km2_hr": pl.Float64,
+        "worst_error_bar": ERROR_BAR_DTYPE,
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,9 +180,10 @@ def _infer_period_starts(asv_telemetry: pl.DataFrame, config: ACPFConfig) -> pl.
     if epochs_us.len() == 0:
         return pl.Series("period_start", [], dtype=pl.Datetime("us", "UTC"))
 
-    min_us = int(epochs_us.min())  # type: ignore[arg-type]
-    max_us = int(epochs_us.max())  # type: ignore[arg-type]
-    dt_us = int(round(config.time_interval.total_seconds() * 1_000_000))
+    epochs_arr = epochs_us.to_numpy()
+    min_us = int(epochs_arr.min())
+    max_us = int(epochs_arr.max())
+    dt_us = round(config.time_interval.total_seconds() * 1_000_000)
 
     # Align grid lines to exact UTC multiples of dt_us fully inside [min_us, max_us]
     first_us = -(-min_us // dt_us) * dt_us
@@ -186,17 +197,21 @@ def _infer_period_starts(asv_telemetry: pl.DataFrame, config: ACPFConfig) -> pl.
 
 
 def _opt_float(val: object) -> float | None:
-    if val is None:
+    if not isinstance(val, (int, float)):
         return None
-    f = float(val)  # type: ignore[arg-type]
+    f = float(val)
     return None if math.isnan(f) else f
+
+
+def _float_or_nan(val: object) -> float:
+    return float(val) if isinstance(val, (int, float)) else float("nan")
 
 
 def compute_acpf_from_aligned(
     aligned_asvs: pl.DataFrame,
     aligned_met: pl.DataFrame,
     *,
-    config: ACPFConfig = ACPFConfig(),
+    config: ACPFConfig = _DEFAULT_CONFIG,
 ) -> ACPFResult:
     """Run Stages 2 and 3 on already period-aligned ASV and meteorological tables."""
     if aligned_asvs.height == 0 and aligned_met.height == 0:
@@ -218,7 +233,7 @@ def compute_acpf_from_aligned(
 
     periods_us = periods_series.dt.epoch("us").to_numpy()
     dt_sec = config.time_interval.total_seconds()
-    dt_us = int(round(dt_sec * 1_000_000))
+    dt_us = round(dt_sec * 1_000_000)
 
     # Index met rows by period_start
     met_by_period: dict[datetime, dict[str, object]] = {}
@@ -258,16 +273,13 @@ def compute_acpf_from_aligned(
             p_atm_val = None
             ext_wind = (float("nan"), float("nan")) if config.wind_mode is WindMode.EXTERNAL else None
         else:
-            raw_mblh = met.get("mblh_m")
-            mblh_val = float(raw_mblh) if raw_mblh is not None else float("nan")
+            mblh_val = _float_or_nan(met.get("mblh_m"))
             t_air_val = _opt_float(met.get("t_air_k"))
             p_atm_val = _opt_float(met.get("p_atm_pa"))
             if config.wind_mode is WindMode.EXTERNAL:
-                u_ext = met.get("u_wind_ext")
-                v_ext = met.get("v_wind_ext")
                 ext_wind = (
-                    float(u_ext) if u_ext is not None else float("nan"),
-                    float(v_ext) if v_ext is not None else float("nan"),
+                    _float_or_nan(met.get("u_wind_ext")),
+                    _float_or_nan(met.get("v_wind_ext")),
                 )
             else:
                 ext_wind = None
@@ -477,7 +489,7 @@ def compute_acpf(
     asv_telemetry: pl.DataFrame,
     met_series: pl.DataFrame,
     *,
-    config: ACPFConfig = ACPFConfig(),
+    config: ACPFConfig = _DEFAULT_CONFIG,
     period_starts: pl.Series | None = None,
 ) -> ACPFResult:
     """Run the full 3-stage ACPF pipeline on raw asynchronous ASV telemetry and met inputs."""

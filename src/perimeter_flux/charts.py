@@ -76,8 +76,8 @@ def compute_kpis(
     net_valid = stable_df.filter(pl.col("storage_adjusted_cdrr_tco2_hr").is_finite())[
         "storage_adjusted_cdrr_tco2_hr"
     ]
-    mean_lat = float(lat_valid.mean()) if lat_valid.len() > 0 else float("nan")  # type: ignore[arg-type]
-    mean_net = float(net_valid.mean()) if net_valid.len() > 0 else float("nan")  # type: ignore[arg-type]
+    mean_lat = float(lat_valid.to_numpy().mean()) if lat_valid.len() > 0 else float("nan")
+    mean_net = float(net_valid.to_numpy().mean()) if net_valid.len() > 0 else float("nan")
 
     err = (
         (mean_net - expected_cdrr_tco2_hr)
@@ -96,16 +96,18 @@ def compute_kpis(
 
 def build_sensor_reliability_table(aligned_asvs_df: pl.DataFrame) -> pl.DataFrame:
     """Build a per-ASV dual-CO2 sensor reliability summary table."""
-    schema: dict[str, pl.DataType] = {
-        "asv_id": pl.String,
-        "n_periods": pl.Int64,
-        "n_flagged_periods": pl.Int64,
-        "n_single_sensor_periods": pl.Int64,
-        "max_finite_diff_ppm": pl.Float64,
-        "mean_finite_diff_ppm": pl.Float64,
-        "mean_wind_constancy": pl.Float64,
-        "pct_on_hull": pl.Float64,
-    }
+    schema = pl.Schema(
+        {
+            "asv_id": pl.String,
+            "n_periods": pl.Int64,
+            "n_flagged_periods": pl.Int64,
+            "n_single_sensor_periods": pl.Int64,
+            "max_finite_diff_ppm": pl.Float64,
+            "mean_finite_diff_ppm": pl.Float64,
+            "mean_wind_constancy": pl.Float64,
+            "pct_on_hull": pl.Float64,
+        }
+    )
     if aligned_asvs_df.height == 0:
         return pl.DataFrame(schema=schema)
 
@@ -137,7 +139,7 @@ def build_hourly_cdrr_chart(
     *,
     expected_cdrr_tco2_hr: float | None = None,
     title: str = "Hourly CDRR (Φ_lat & Φ_net) by Ordered ErrorBar Severity",
-) -> alt.LayerChart:
+) -> alt.LayerChart | alt.FacetChart:
     """Build Panel 1: hourly lateral & storage-adjusted CDRR with ErrorBar color/shape encoding."""
     clean = _sanitize_for_altair(hourly_df)
     marker_df = clean.with_columns(
@@ -227,7 +229,7 @@ def build_polygon_flux_map(
     aligned_asvs_df: pl.DataFrame,
     hourly_df: pl.DataFrame,
     selected_period: datetime,
-) -> alt.LayerChart:
+) -> alt.LayerChart | alt.FacetChart:
     """Build Panel 2: local EN (km) CCW convex hull, outward normals, wind vectors, and per-edge flux."""
     edges_p = _sanitize_for_altair(edges_df.filter(pl.col("period_start") == selected_period))
     asvs_p = _sanitize_for_altair(aligned_asvs_df.filter(pl.col("period_start") == selected_period))
@@ -253,8 +255,8 @@ def build_polygon_flux_map(
     xs = asvs_p["x_km"].drop_nulls()
     ys = asvs_p["y_km"].drop_nulls()
     max_extent = max(
-        float(xs.abs().max()) if xs.len() > 0 else 100.0,  # type: ignore[arg-type]
-        float(ys.abs().max()) if ys.len() > 0 else 100.0,  # type: ignore[arg-type]
+        float(xs.abs().to_numpy().max()) if xs.len() > 0 else 100.0,
+        float(ys.abs().to_numpy().max()) if ys.len() > 0 else 100.0,
         10.0,
     )
     pad = max_extent * 1.38
@@ -269,7 +271,7 @@ def build_polygon_flux_map(
 
     if edges_p.height > 0:
         flux_vals = edges_p["edge_outward_flux_tco2_hr"].drop_nulls()
-        max_flux = max(float(flux_vals.abs().max()) if flux_vals.len() > 0 else 1.0, 1.0)  # type: ignore[arg-type]
+        max_flux = max(float(flux_vals.abs().to_numpy().max()) if flux_vals.len() > 0 else 1.0, 1.0)
 
         edges_enriched = edges_p.with_columns(
             (pl.col("mid_x_km") + pl.col("normal_x") * normal_len_km).alias("nx_end_km"),
@@ -546,7 +548,7 @@ def build_storage_cancellation_chart(
         .properties(title="Box-Mean & Hull-Reference CO₂ Concentration", width=760, height=170)
     )
 
-    return alt.vconcat(top_panel, bottom_panel).resolve_scale(color="independent")
+    return alt.vconcat(top_panel, bottom_panel).resolve_scale(color="independent")  # ty: ignore[invalid-explicit-return]
 
 
 def build_co2_sensor_comparison_chart(
@@ -586,9 +588,7 @@ def build_co2_sensor_comparison_chart(
     # Bottom panel: finite |co2_1 - co2_2| plus single-sensor fallback markers
     # Separate finite diff from infinite (single-sensor missing) before sanitizing to avoid JSON Infinity
     finite_diffs = aligned_asvs_df.filter(pl.col("co2_sensor_diff_ppm").is_finite())
-    max_finite = (
-        float(finite_diffs["co2_sensor_diff_ppm"].max()) if finite_diffs.height > 0 else 0.0  # type: ignore[arg-type]
-    )
+    max_finite = float(finite_diffs["co2_sensor_diff_ppm"].to_numpy().max()) if finite_diffs.height > 0 else 0.0
     fallback_y = max(max_co2_sensor_diff_ppm * 1.25, max_finite * 1.05, 2.5)
 
     single_sensor_df = _sanitize_for_altair(
