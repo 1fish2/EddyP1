@@ -11,10 +11,17 @@ build/
 data/
 /tmp/
 
-/.idea/*
-!.idea/inspectionProfiles/
-.idea/inspectionProfiles/*
-!.idea/inspectionProfiles/Project_Default.xml
-!.idea/dictionaries/
-!.idea/dictionaries/*
+# PyCharm / JetBrains .idea settings
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/usage.statistics.xml
+.idea/**/shelf/
+.idea/**/httpRequests/
+
+# User-specific dictionaries (keep project.xml shared)
+.idea/dictionaries/*
 !.idea/dictionaries/project.xml
+
+# Local database / datasource credentials if used
+.idea/**/dataSources.local.xml
+.idea/**/dataSources/

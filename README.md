@@ -19,7 +19,8 @@ method described in:
 
 * Run `uv sync` in the project directory to create or update a Python virtual environment in the `.venv` folder and
   install/update all the library and tool dependencies listed in `pyproject.toml`.  
-  (`uv sync --no-dev` for a production-only environment without dev dependencies.)
+  (`uv sync --no-dev` for a production-only environment without dev dependencies.)  
+  Launching PyCharm should notice the virtual environment and offer to use it. If PyCharm is already running, click the Python Interpreter selector in the bottom-right status bar. Built-in PyCharm terminal windows will automatically activate the virtual environment.
 * Run all the unit tests: `uv run pytest`, or `uv run pytest -v` with verbose output.
 * Run the `ty` type checker: `uv run ty check`, or  `uv run ty check src` to check just the `src/` directory.
 * Run the `ruff` lint checker: `uv run ruff check .`, or `uv run ruff check --fix .` to auto-fix safe issues,

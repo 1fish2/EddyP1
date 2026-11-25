@@ -1,0 +1,3 @@
+<component name="DependencyValidationManager">
+  <scope name="Marimo-notebooks" pattern="file[eddyp1]:notebooks//*" />
+</component>
