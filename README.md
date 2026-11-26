@@ -16,6 +16,8 @@ method described in:
 * [OSHEN C-Star ASVs](https://www.oshendata.com/)  
   ![C-Star on the ocean](doc/c-star%20on%20the%20ocean.jpg)
   ![C-Stars in a raft](doc/c-stars%20in%20a%20raft.jpg)
+* [NASA Worldview](https://worldview.earthdata.nasa.gov/?v=-220.394549586033,-196.57913863316554,99.43043196175228,200.2567099899175&z=1&l=Reference_Labels_15m(hidden),Admin_Boundaries(hidden),DoS_International_Boundaries(hidden),Coastlines_15m(hidden),TOPEX-Poseidon_JASON_Sea_Surface_Height_Anomalies_US_West_Coast_GAFECC(hidden),TOPEX-Poseidon_JASON_Sea_Surface_Height_Anomalies_Reconstructed(hidden),TOPEX-Poseidon_JASON_Sea_Surface_Height_Anomalies_GDR_Cycles(hidden),JPL_MEaSUREs_L4_Sea_Surface_Height_Anomalies,S3B_OLCI_Chlorophyll_a(hidden),VIIRS_NOAA20_Chlorophyll_a(hidden),SEAWIFS_ORBVIEW-2_GAC_Chlorophyll_a,OCO-3_Carbon_Dioxide_Global_Mean_Difference,OCO-2_Carbon_Dioxide_Global_Mean_Difference(hidden),VIIRS_NOAA21_CorrectedReflectance_TrueColor(hidden),VIIRS_NOAA20_CorrectedReflectance_TrueColor(hidden),VIIRS_SNPP_CorrectedReflectance_TrueColor(hidden),MODIS_Aqua_CorrectedReflectance_TrueColor(hidden)&lg=true&t=2018-08-15-T19%3A35%3A28Z) showing Surface Height Anomalies
+* [NullSchool Earth](https://earth.nullschool.net/#current/ocean/surface/currents/orthographic=-111.04,18.08,1697) wind, weather, and ocean conditions
 * [CDRR](https://github.com/F4CR/f4cr-cdrr/tree/main)
 * [Web-based views of co2 satellite data](https://github.com/F4CR/visualization)
 
