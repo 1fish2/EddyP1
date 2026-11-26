@@ -23,7 +23,7 @@ method described in:
 
 ## Initial Components
 
-* Core implementation of the ACPF pipeline. See [ACPF math](doc/acpf_math.md) and [ACPF implementation plan](doc/acpf_implementation_plan.md).
+* => Core implementation of the ACPF pipeline. See **[ACPF math](doc/acpf_math.md)** and **[ACPF implementation plan](doc/acpf_implementation_plan.md)**.
 * Marimo notebooks to visualize wind flow and ACPF analysis.
 
 ![a wind flow direction visualization](doc/visualization.png "initial wind flow direction visualization")
