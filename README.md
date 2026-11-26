@@ -2,11 +2,22 @@
 
 ## Work-in-progress
 
-Building tools to analyze bouy/ASV data plus satellite data to compute
+Building tools to analyze data from ASVs (Autonomous Surface Vehicles) together with satellite data to compute
 Carbon Dioxide Removal Rate (CDDR) using the Atmospheric CO₂ Perimeter Flux (ACPF)
 method described in:
 
-* [Measuring large-scale mCDR using a novel Atmospheric CO₂ Perimeter Flux (ACPF) method](https://www.frontiersin.org/journals/climate/articles/10.3389/fclim.2026.1941538/full#fig1)
+* [Measuring large-scale mCDR using a novel Atmospheric CO₂ Perimeter Flux (ACPF) method](https://www.frontiersin.org/journals/climate/articles/10.3389/fclim.2026.1941538/full#fig1)  
+  ![ACPF diagram](doc/ACPF%20diagram%20310px.jpeg)
+* [Localized ocean fertilization is not OIF....It’s vastly better](https://climaterestoration.substack.com/p/localized-ocean-fertilization-is) -- some of the evidence for the hypothesis that fertilizing downwelling eddies can remove Gt levels of CO₂
+* [How Safe is Ocean Fertilization?](https://climaterestoration.substack.com/p/how-safe-is-ocean-fertilization)
+
+## Background
+
+* [OSHEN C-Star ASVs](https://www.oshendata.com/)  
+  ![C-Star on the ocean](doc/c-star%20on%20the%20ocean.jpg)
+  ![C-Stars in a raft](doc/c-stars%20in%20a%20raft.jpg)
+* [CDRR](https://github.com/F4CR/f4cr-cdrr/tree/main)
+* [Web-based views of co2 satellite data](https://github.com/F4CR/visualization)
 
 ## Initial Components
 
@@ -31,15 +42,27 @@ method described in:
 
 ## Components TODO
 
-* xxx.
-* Figure out the algorithm to fit a circle to an eddy current in the ocean current data.
-* Design visualizations to make it clear how this method measures CO₂ removal rate.
+* More test cases.
+* Handle the case where there are only two ASVs (or effectively only two when the polygon degenerates to a sliver). Extrapolate a diamond with the ASVs on the diagonal? Extrapolate a wide chord with the ASVs on two sides? How wide? How much to multiply the Error bar in this case?
+* Compare interpolation methods.
 * Compare data from 2 sensors per buoy to look for sensor measurement problems. Experiment with how to handle discrepancies.
-* Plan to discard or interpolate across problematic time intervals like a nearby passing diesel ship or rapid wind direction change.
+* Design visualizations/animations to make it clear how this method measures CDR (CO₂ removal rate), how well the paired CO2 sensors track either other and nearby sensors, and more. Also how CDR responds to changing conditions like shifting winds, .
+* Discard or interpolate across problematic time intervals like a nearby passing diesel ship or rapid wind direction change.
 * Simulate sensor data for testing the visualization and the computation, including handling bad sensor values and temporary situations.
 * Data of various types from various satellites become available with different delay times. Some sources provide less accurate "near real time" data within days, then provide more accurate data after more days or weeks.
-* Combine or switch between satellite vs. ASV wind data.
-* Measure or compute the factors that limit accuracy.
+* Filter measurement noise.
+* Combine multiple data sources for wind, barometric pressure, and air temperature data.
+* Estimate the error bars.
+* Test the case of a passing diesel-ship which spikes the CO₂ values.
 * Keep a list of small effects to consider later (also tracked in `doc/acpf_math.md` Section 7):
   * **Local ENU tangent-plane vs. ellipsoidal geodesic geometry**: At ~200 km eddy scale, flat WGS 84 ENU horizontal chord-vs-arc distortion is < 0.02% (~8 m) and fractional area error scales as `(L / 2R)²`, negligible relative to wind and MBLH uncertainties. If deployments ever approach ~1000 km scale, consider switching to Karney ellipsoidal geodesic lengths/areas.
   * **ASV drift velocity frame & moving-boundary Reynolds correction**: Computing hourly ASV drift in a shared midpoint ENU frame avoids origin-shift drift when the hull centroid moves and provides `(u, v)` components for future `(w - w_asv) · n` moving-boundary corrections; for scalar speed alone, the 3D ECEF chord norm `‖X_k - X_{k-1}‖ / Δt` agrees to `< 1e-6` over hourly ASV displacements.
+
+## Questions
+
+* Do more to interpolate between data samples over time, sensor positions, and satellite data locations (e.g. MBLH measurements)?
+* How to generate simulated data for testing the computation and visualizations?
+* Plan to test some ASVs near land for a while to find out how much their CO₂ sensors and wind sensors track each other; how stable the wind data is when the ASV is bobbing, tilting, and turning; and tune failure and discrepancy thresholds/metrics?
+* Test the sensor outputs when an ASV gets wet enough to soak the CO₂ sensors? What are the signatures of CO₂, wind, and GPS data anomalies in this situation? How long does it take all the sensors to recover?
+* Will ASVs aggregate data like wind readings over a sampling interval and send more details than the average, e.g. a noise metric like STD or range? Or send a sequence of wind readings over the interval?
+* Will an ASV send data successfully during a storm, while on its side, or while upside down? Will it buffer data until connectivity is restored?
